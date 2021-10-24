@@ -116,12 +116,10 @@ void UStaticMeshGenerator::PopulateStaticMeshWithData(UStaticMesh* Asset) {
 			StaticMaterial.MaterialInterface = CastChecked<UMaterialInterface>(MaterialInterface);
 		}
 	}
-
-	const int32 MaxShadowLOD = AssetData->GetIntegerField(TEXT("MaxShadowLOD"));
+	
 	UObject* NavCollision = GetObjectSerializer()->DeserializeObject(AssetData->GetIntegerField(TEXT("NavCollision")));
 	UObject* BodySetupObject = GetObjectSerializer()->DeserializeObject(AssetData->GetIntegerField(TEXT("BodySetup")));
-
-	Asset->MaxShadowLOD = MaxShadowLOD;
+	
 	Asset->NavCollision = Cast<UNavCollisionBase>(NavCollision);
 	Asset->BodySetup = Cast<UBodySetup>(BodySetupObject);
 	MarkAssetChanged();
@@ -154,16 +152,13 @@ bool UStaticMeshGenerator::IsStaticMeshDataUpToDate(UStaticMesh* Asset) const {
 	}
 
 	//check some properties serialized externally
-	if (const int32 MaxShadowLOD = AssetData->GetIntegerField(TEXT("MaxShadowLOD"));
-		Asset->MaxShadowLOD != MaxShadowLOD) {
+	const int32 NavCollisionObjectIndex = AssetData->GetIntegerField(TEXT("NavCollision"));
+	const int32 BodySetupObjectIndex = AssetData->GetIntegerField(TEXT("BodySetup"));
+	
+	if (!GetObjectSerializer()->CompareUObjects(NavCollisionObjectIndex, Asset->NavCollision, false, false)) {
 		return false;
 	}
-	if (const int32 NavCollisionObjectIndex = AssetData->GetIntegerField(TEXT("NavCollision"));
-		!GetObjectSerializer()->CompareUObjects(NavCollisionObjectIndex, Asset->NavCollision, false, false)) {
-		return false;
-	}
-	if (const int32 BodySetupObjectIndex = AssetData->GetIntegerField(TEXT("BodySetup"));
-		!GetObjectSerializer()->CompareUObjects(BodySetupObjectIndex, Asset->BodySetup, false, false)) {
+	if (!GetObjectSerializer()->CompareUObjects(BodySetupObjectIndex, Asset->BodySetup, false, false)) {
 		return false;
 	}
 	return true;

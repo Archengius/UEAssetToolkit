@@ -259,7 +259,7 @@ void UObjectHierarchySerializer::FlushPropertiesIntoObject(const int32 ObjectInd
 	
 	const TSharedPtr<FJsonObject> ObjectData = this->SerializedObjects.FindChecked(ObjectIndex);
 
-	check(!this->LoadedObjects.Contains(ObjectIndex), TEXT("Cannot flush properties into already deserialized object"));
+	checkf(!this->LoadedObjects.Contains(ObjectIndex), TEXT("Cannot flush properties into already deserialized object"));
 	this->LoadedObjects.Add(ObjectIndex, Object);
 	
 	const FString ObjectType = ObjectData->GetStringField(TEXT("Type"));
@@ -268,7 +268,7 @@ void UObjectHierarchySerializer::FlushPropertiesIntoObject(const int32 ObjectInd
 	const int32 ObjectClassIndex = ObjectData->GetIntegerField(TEXT("ObjectClass"));
 	const UClass* ObjectClass = CastChecked<UClass>(DeserializeObject(ObjectClassIndex));
 	
-	check(Object->GetClass()->IsChildOf(ObjectClass), TEXT("Can only call FlushPropertiesIntoObject for objects matching serialized object class"));
+	checkf(Object->GetClass()->IsChildOf(ObjectClass), TEXT("Can only call FlushPropertiesIntoObject for objects matching serialized object class"));
 	
 	if (bVerifyNameAndRename) {
 		const FString ObjectName = ObjectData->GetStringField(TEXT("ObjectName"));

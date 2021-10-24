@@ -21,11 +21,5 @@
 			"Type": "Runtime",
 			"LoadingPhase": "PostDefault"
 		}
-	],
-	"Plugins": [
-		{
-        	"Name": "SML",
-        	"Enabled": true
-		}
 	]
 }

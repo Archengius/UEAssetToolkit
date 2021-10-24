@@ -4,6 +4,7 @@
 #include "Toolkit/PropertySerializer.h"
 #include "Toolkit/AssetDumping/AssetTypeSerializerMacros.h"
 #include "Toolkit/AssetDumping/SerializationContext.h"
+#include "AssetDumperModule.h"
 
 void UMaterialAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext> Context) const {
     BEGIN_ASSET_SERIALIZATION(UMaterial)
@@ -12,8 +13,11 @@ void UMaterialAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext> 
     //obviously they will be unable to show material in editor, but they can be used to reference it and even create new instances on top of it
 
 	DisableMaterialExpressionProperties(Serializer);
+	
+#if WITH_CSS_ENGINE_PATCHES
 	Data->SetNumberField(TEXT("ExpressionCount"), Asset->Expressions.Num());
-
+#endif
+	
 	DisableMaterialFunctionSerialization(Serializer);
 	SerializeReferencedFunctions(Asset->GetCachedExpressionData(), Data);
 	
@@ -51,7 +55,9 @@ void UMaterialAssetSerializer::DisableMaterialFunctionSerialization(UPropertySer
 }
 
 void UMaterialAssetSerializer::DisableMaterialExpressionProperties(UPropertySerializer* Serializer) {
+#if WITH_CSS_ENGINE_PATCHES
 	DISABLE_SERIALIZATION(UMaterial, Expressions);
+#endif
 	DISABLE_SERIALIZATION(UMaterial, Metallic);
 	DISABLE_SERIALIZATION(UMaterial, Specular);
 	DISABLE_SERIALIZATION(UMaterial, Anisotropy);

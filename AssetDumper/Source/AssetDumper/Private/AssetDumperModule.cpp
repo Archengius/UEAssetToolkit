@@ -1,14 +1,60 @@
 #include "AssetDumperModule.h"
-#include "Patching/NativeHookManager.h"
 #include "Toolkit/AssetDumping/AssetDumpProcessor.h"
-#include "Toolkit/AssetTypes/StaticMeshAssetSerializer.h"
+
+#if METHOD_PATCHING_SUPPORTED
+#include "Patching/NativeHookManager.h"
+#endif
 
 void FAssetDumperModule::StartupModule() {
 	UE_LOG(LogAssetDumper, Log, TEXT("Starting up asset dumper plugin"));
 	
-	//eats up considerable amount of RAM and also hooks in the very hot place, but we're fine since we are a development tool only
-	UStaticMeshAssetSerializer::EnableGlobalStaticMeshCPUAccess();
+	if (!GIsEditor) {
+		EnableGlobalStaticMeshCPUAccess();
+		EnableFixTireConfigSerialization();
+	}
+}
 
+void FAssetDumperModule::ShutdownModule() {
+}
+
+void FAssetDumperModule::EnableGlobalStaticMeshCPUAccess() {
+#if METHOD_PATCHING_SUPPORTED
+	//setup hook for forcing all static mesh data to be CPU resident
+	void* UObjectCDO = GetMutableDefault<UObject>();
+	SUBSCRIBE_METHOD_EXPLICIT_VIRTUAL_AFTER(void(UObject::*)(FArchive&), UObject::Serialize, UObjectCDO, [](UObject* Object, FArchive& Ar) {
+		if (Object->IsA<UStaticMesh>()) {
+			CastChecked<UStaticMesh>(Object)->bAllowCPUAccess = true;
+		}
+	});
+
+	//reload all existing static mesh packages to apply the patch
+	TArray<UPackage*> PackagesToReload;
+
+	for (TObjectIterator<UStaticMesh> It; It; ++It) {
+		UStaticMesh* StaticMesh = *It;
+		if (!StaticMesh->bAllowCPUAccess) {
+			UPackage* OwnerPackage = StaticMesh->GetOutermost();
+			//Only interested in non-transient FactoryGame packages
+			if (OwnerPackage->GetName().StartsWith(TEXT("/Game/FactoryGame/"))) {
+				if (!OwnerPackage->HasAnyFlags(RF_Transient)) {
+					UE_LOG(LogAssetDumper, Log, TEXT("StaticMesh Package %s has been loaded before CPU access fixup application, attempting to reload"), *OwnerPackage->GetName());
+					PackagesToReload.Add(OwnerPackage);	
+				}
+			}
+		}
+	}
+	
+	if (PackagesToReload.Num()) {
+		UE_LOG(LogAssetDumper, Log, TEXT("Reloading %d StaticMesh packages for CPU access fixup"), PackagesToReload.Num());
+		for (UPackage* Package : PackagesToReload) {
+			ReloadPackage(Package, LOAD_None);
+		}
+	}
+#endif
+}
+
+void FAssetDumperModule::EnableFixTireConfigSerialization() {
+#if METHOD_PATCHING_SUPPORTED
 	//disable that weird shit because it apparently crashes on garbage collection
 	UClass* TireConfigClass = FindObject<UClass>(NULL, TEXT("/Script/PhysXVehicles.TireConfig"));
 	check(TireConfigClass);
@@ -17,9 +63,7 @@ void FAssetDumperModule::StartupModule() {
 			Object->PostInitProperties();
 		}
 	});
-}
-
-void FAssetDumperModule::ShutdownModule() {
+#endif
 }
 
 IMPLEMENT_GAME_MODULE(FAssetDumperModule, AssetDumper);

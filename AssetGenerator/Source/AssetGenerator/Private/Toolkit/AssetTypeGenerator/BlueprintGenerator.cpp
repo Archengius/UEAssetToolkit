@@ -14,6 +14,7 @@
 #include "K2Node_FunctionResult.h"
 #include "Engine/SimpleConstructionScript.h"
 #include "Kismet2/KismetEditorUtilities.h"
+#include "Animation/AnimBlueprint.h"
 
 UBlueprint* UBlueprintGenerator::CreateNewBlueprint(UPackage* Package, UClass* ParentClass) {
 	return FKismetEditorUtilities::CreateBlueprint(ParentClass, Package, GetAssetName(), BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());

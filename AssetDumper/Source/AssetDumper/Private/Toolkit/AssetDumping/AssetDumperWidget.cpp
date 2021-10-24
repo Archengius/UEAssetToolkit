@@ -3,82 +3,8 @@
 #include "Toolkit/AssetDumping/AssetRegistryViewWidget.h"
 #include "Toolkit/AssetDumping/AssetTypeSerializer.h"
 #include "Util/FileDialogHelper.h"
-#include "Util/GameEditorHelper.h"
 
 #define LOCTEXT_NAMESPACE "AssetDumper"
-
-bool StaticAssetDumperExec(UWorld* World, const TCHAR* Command, FOutputDevice& Ar) {
-	
-	if (FParse::Command(&Command, TEXT("OpenAssetDumper"))) {
-		TSharedRef<SWindow> Window = SNew(SWindow)
-                        .Title(LOCTEXT("AssetDumper_Title", "Asset Dumper Settings"))
-                        .MinWidth(800).MinHeight(600)
-                        .AutoCenter(EAutoCenter::PreferredWorkArea);
-		Window->SetContent(SNew(SAssetDumperWidget));
-
-		const TSharedRef<SWindow> ParentWindow = FGameEditorHelper::GetMainWindow().ToSharedRef();
-		FSlateApplication::Get().AddWindowAsNativeChild(Window, ParentWindow, true);
-		return true;
-	}
-	
-	if (FParse::Command(&Command, TEXT("OpenAssetDumperConsole"))) {
-		const TSharedPtr<FAssetDumpProcessor> ActiveProcessor = FAssetDumpProcessor::GetActiveDumpProcessor();
-		if (!ActiveProcessor.IsValid()) {
-			Ar.Log(TEXT("No asset dumping is currently active. Start it through OpenAssetDumper command"));
-			return true;
-		}
-		SAssetDumpConsoleWidget::CreateForAssetDumper(ActiveProcessor.ToSharedRef());
-		return true;
-	}
-
-	if (FParse::Command(&Command, TEXT("DumpAllGameAssets"))) {
-		Ar.Log(TEXT("Starting console-driven asset dumping, dumping all assets"));
-		const TSharedRef<FSelectedAssetsStruct> SelectedAssetsStruct(new FSelectedAssetsStruct);
-
-		SelectedAssetsStruct->AddIncludedPackagePath(TEXT("/"));
-		for (UAssetTypeSerializer* Serializer : UAssetTypeSerializer::GetAvailableAssetSerializers()) {
-			SelectedAssetsStruct->AddAssetClassWhitelist(Serializer->GetAssetClass());
-			TArray<FName> AdditionalClassNames;
-			Serializer->GetAdditionallyHandledAssetClasses(AdditionalClassNames);
-			for (const FName& AssetClass : AdditionalClassNames) {
-				SelectedAssetsStruct->AddAssetClassWhitelist(AssetClass);
-			}
-		}
-
-		Ar.Log(TEXT("Gathering asset data under / path, this may take a while..."));
-		SelectedAssetsStruct->GatherAssetsData();
-
-	    const TMap<FName, FAssetData>& AssetData = SelectedAssetsStruct->GetGatheredAssets();
-		Ar.Logf(TEXT("Asset data gathered successfully! Gathered %d assets for dumping"), AssetData.Num());
-
-		FAssetDumpSettings DumpSettings{};
-		DumpSettings.bExitOnFinish = true;
-		FAssetDumpProcessor::StartAssetDump(DumpSettings, AssetData);
-		Ar.Log(TEXT("Asset dump started successfully, game will shutdown on finish"));
-		return true;
-	}
-
-	if (FParse::Command(&Command, TEXT("ListUnknownAssetClasses"))) {
-		TArray<FName> SupportedClasses;
-		for (UAssetTypeSerializer* Serializer : UAssetTypeSerializer::GetAvailableAssetSerializers()) {
-			SupportedClasses.Add(Serializer->GetAssetClass());
-			Serializer->GetAdditionallyHandledAssetClasses(SupportedClasses);
-		}
-
-		TArray<FName> UnknownAssetClasses;
-		FSelectedAssetsStruct::FindUnknownAssetClasses(SupportedClasses, UnknownAssetClasses);
-		if (UnknownAssetClasses.Num() > 0) {
-			Ar.Log(TEXT("Unknown asset classes in asset registry: "));
-			for (const FName& AssetClass : UnknownAssetClasses) {
-				Ar.Logf(TEXT(" - '%s'"), *AssetClass.ToString());
-			}
-		} else {
-			Ar.Logf(TEXT("No unknown asset classes found in asset registry"));
-		}
-		return true;
-	}
-	return false;
-}
 
 void SAssetDumperWidget::Construct(const FArguments& InArgs) {
 	ChildSlot[
@@ -342,4 +268,3 @@ FReply SAssetDumperWidget::OnAssetDumpButtonPressed() {
 	return FReply::Handled();
 }
 
-static FStaticSelfRegisteringExec AssetDumperStaticExec(&StaticAssetDumperExec);

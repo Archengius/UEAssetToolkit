@@ -4,46 +4,10 @@
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "Dom/JsonObject.h"
-#include "Patching/NativeHookManager.h"
 #include "Toolkit/ObjectHierarchySerializer.h"
 #include "Toolkit/PropertySerializer.h"
-#include "Toolkit/AssetDumping/AssetDumpProcessor.h"
 #include "Toolkit/AssetDumping/AssetTypeSerializerMacros.h"
 #include "Toolkit/AssetDumping/SerializationContext.h"
-
-void UStaticMeshAssetSerializer::EnableGlobalStaticMeshCPUAccess() {
-	//setup hook for forcing all static mesh data to be CPU resident
-	void* UObjectCDO = GetMutableDefault<UObject>();
-	SUBSCRIBE_METHOD_EXPLICIT_VIRTUAL_AFTER(void(UObject::*)(FArchive&), UObject::Serialize, UObjectCDO, [](UObject* Object, FArchive& Ar) {
-		if (Object->IsA<UStaticMesh>()) {
-			CastChecked<UStaticMesh>(Object)->bAllowCPUAccess = true;
-		}
-	});
-
-	//reload all existing static mesh packages to apply the patch
-	TArray<UPackage*> PackagesToReload;
-
-	for (TObjectIterator<UStaticMesh> It; It; ++It) {
-		UStaticMesh* StaticMesh = *It;
-		if (!StaticMesh->bAllowCPUAccess) {
-			UPackage* OwnerPackage = StaticMesh->GetOutermost();
-			//Only interested in non-transient FactoryGame packages
-			if (OwnerPackage->GetName().StartsWith(TEXT("/Game/FactoryGame/"))) {
-				if (!OwnerPackage->HasAnyFlags(RF_Transient)) {
-					UE_LOG(LogAssetDumper, Log, TEXT("StaticMesh Package %s has been loaded before CPU access fixup application, attempting to reload"), *OwnerPackage->GetName());
-					PackagesToReload.Add(OwnerPackage);	
-				}
-			}
-		}
-	}
-	
-	if (PackagesToReload.Num()) {
-		UE_LOG(LogAssetDumper, Log, TEXT("Reloading %d StaticMesh packages for CPU access fixup"), PackagesToReload.Num());
-		for (UPackage* Package : PackagesToReload) {
-			ReloadPackage(Package, LOAD_None);
-		}
-	}
-}
 
 void UStaticMeshAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext> Context) const {
     BEGIN_ASSET_SERIALIZATION(UStaticMesh)
@@ -70,7 +34,6 @@ void UStaticMeshAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext
 	Data->SetArrayField(TEXT("Materials"), Materials);
 
     //Serialize extra properties using native serialization
-    Data->SetNumberField(TEXT("MaxShadowLOD"), Asset->MaxShadowLOD);
     Data->SetNumberField(TEXT("NavCollision"), ObjectSerializer->SerializeObject(Asset->NavCollision));
     Data->SetNumberField(TEXT("BodySetup"), ObjectSerializer->SerializeObject(Asset->BodySetup));
 

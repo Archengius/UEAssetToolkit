@@ -1,6 +1,6 @@
 #include "Toolkit/KismetBytecodeDisassemblerJson.h"
 #include "Serialization/JsonSerializer.h"
-#include "Toolkit/PropertyTypeHandler.h"
+#include "Toolkit/PropertyTypeHelper.h"
 
 TSharedPtr<FJsonObject> FKismetBytecodeDisassemblerJson::SerializeExpression(int32& ScriptIndex) {
 	EExprToken Opcode = (EExprToken) ReadByte(ScriptIndex);

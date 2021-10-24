@@ -10,44 +10,30 @@ public class AssetGenerator : ModuleRules
         bLegacyPublicIncludePaths = false;
         ShadowVariableWarningLevel = WarningLevel.Off;
         
-        //Asset Generator dependencies
         PublicDependencyModuleNames.AddRange(new[] {
+            "Core", 
+            "CoreUObject",
+            "Engine",
+            "InputCore",
+            "BlueprintGraph",
+            "KismetCompiler",
+            "AssetRegistry",
+            "SlateCore", "Slate", "UMG",
+            "Projects",
+            "Landscape",
             "Json",
 			"UnrealEd",
 			"BlueprintGraph",
-			"FactoryGame",
-			"AssetDumper"
+            "AssetDumper"
         });
+        
 		PrivateDependencyModuleNames.AddRange(new[] {
             "DesktopPlatform",
             "MaterialEditor",
             "RHI", 
-            "AnimGraph"
-        });
-        
-        //FactoryGame transitive dependencies
-        PublicDependencyModuleNames.AddRange(new[] {
-            "Core", "CoreUObject",
-            "Engine",
-            "InputCore",
-            "OnlineSubsystem", "OnlineSubsystemNull", "OnlineSubsystemEOS", "OnlineSubsystemUtils",
-            "SignificanceManager",
-            "APEX", "ApexDestruction",
-            "BlueprintGraph",
-            "KismetCompiler",
-            "AnimGraphRuntime",
-            "AkAudio", 
-            "PhysXVehicles",
-            "AssetRegistry",
-            "NavigationSystem",
-            "ReplicationGraph",
-            "AIModule",
-            "GameplayTasks",
-            "SlateCore", "Slate", "UMG",
-            "InstancedSplines",
-            "Projects",
-            "WorkspaceMenuStructure",
-            "Landscape"
+            "AnimGraph",
+            "Kismet",
+            "WorkspaceMenuStructure"
         });
     }
 }

@@ -1,6 +1,5 @@
 #include "Toolkit/AssetTypes/FbxMeshExporter.h"
 #include "AnimEncoding.h"
-#include "SatisfactoryModLoader.h"
 #include "Rendering/SkeletalMeshLODRenderData.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Animation/AnimSequence.h"
@@ -41,10 +40,8 @@ FbxScene* CreateFbxSceneForFbxManager(FbxManager* FbxManager) {
 	FbxDocumentInfo* SceneInfo = FbxDocumentInfo::Create(FbxManager, "SceneInfo");
 	SceneInfo->mTitle = "SML FBX Exporter";
 	SceneInfo->mComment = "All rights of exported game assets belong to CoffeeStain Studios. Do not redistribute.";
-
-	const FbxString VersionString = FFbxDataConverter::ConvertToFbxString(FSatisfactoryModLoader::GetModLoaderVersion().ToString());
-	SceneInfo->Original_ApplicationName.Set("Satisfactory Mod Loader");
-	SceneInfo->Original_ApplicationVersion.Set(VersionString);
+	
+	SceneInfo->Original_ApplicationName.Set("Asset Dumper");
 	Scene->SetSceneInfo(SceneInfo);
 
 	FbxAxisSystem::EFrontVector FrontVector = (FbxAxisSystem::EFrontVector)-FbxAxisSystem::eParityOdd;

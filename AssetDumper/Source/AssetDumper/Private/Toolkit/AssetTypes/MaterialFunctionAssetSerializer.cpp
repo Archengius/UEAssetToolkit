@@ -5,13 +5,15 @@
 #include "Toolkit/AssetDumping/AssetTypeSerializerMacros.h"
 #include "Toolkit/AssetDumping/SerializationContext.h"
 #include "Toolkit/AssetTypes/MaterialAssetSerializer.h"
+#include "AssetDumperModule.h"
 
 void UMaterialFunctionAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext> Context) const {
 	BEGIN_ASSET_SERIALIZATION(UMaterialFunction)
-	
+
+#if WITH_CSS_ENGINE_PATCHES
 	DISABLE_SERIALIZATION(UMaterialFunction, FunctionExpressions)
 	Data->SetNumberField(TEXT("FunctionExpressionCount"), Asset->FunctionExpressions.Num());
-
+#endif
 	UMaterialAssetSerializer::DisableMaterialFunctionSerialization(Serializer);
 	
 	SERIALIZE_ASSET_OBJECT

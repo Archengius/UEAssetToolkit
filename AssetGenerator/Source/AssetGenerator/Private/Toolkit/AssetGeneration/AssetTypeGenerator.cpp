@@ -231,7 +231,8 @@ TArray<TSubclassOf<UAssetTypeGenerator>> UAssetTypeGenerator::GetAllGenerators()
 	TArray<TSubclassOf<UAssetTypeGenerator>> ResultArray;
 
 	for (const TPair<FName, TWeakObjectPtr<UClass>>& Pair : FAssetTypeGeneratorRegistry::Get().Generators) {
-		if (UClass* ResultingValue = Pair.Value.Get(); ResultingValue) {
+		UClass* ResultingValue = Pair.Value.Get();
+		if (ResultingValue) {
 			ResultArray.AddUnique(ResultingValue);
 		}
 	}

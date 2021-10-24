@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Tickable.h"
+#include "AssetData.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAssetDumper, All, All);
 

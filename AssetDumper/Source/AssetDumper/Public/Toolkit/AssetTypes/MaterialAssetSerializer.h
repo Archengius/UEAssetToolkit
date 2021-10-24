@@ -2,6 +2,8 @@
 #include "Toolkit/AssetDumping/AssetTypeSerializer.h"
 #include "MaterialAssetSerializer.generated.h"
 
+class UPropertySerializer;
+
 UCLASS(MinimalAPI)
 class UMaterialAssetSerializer : public UAssetTypeSerializer {
     GENERATED_BODY()

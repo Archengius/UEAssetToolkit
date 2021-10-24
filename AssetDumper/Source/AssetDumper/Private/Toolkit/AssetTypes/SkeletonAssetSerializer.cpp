@@ -2,7 +2,6 @@
 #include "Toolkit/AssetTypes/AssetHelper.h"
 #include "Toolkit/AssetTypes/FbxMeshExporter.h"
 #include "Toolkit/PropertySerializer.h"
-#include "Reflection/ReflectionHelper.h"
 #include "Toolkit/AssetTypes/SkeletalMeshAssetSerializer.h"
 #include "Animation/Skeleton.h"
 #include "Toolkit/ObjectHierarchySerializer.h"
@@ -74,8 +73,14 @@ void USkeletonAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext> 
 void USkeletonAssetSerializer::SerializeSmartNameContainer(const FSmartNameContainer& Container, TSharedPtr<FJsonObject> OutObject) {
     //Serialize smart name mappings
     TArray<TSharedPtr<FJsonValue>> NameMappings;
-    for (FName SmartNameId : Container.GetMappingNames()) {
+
+	TArray<FName> MappingNames { USkeleton::AnimCurveMappingName, USkeleton::AnimTrackCurveMappingName };
+	
+    for (FName SmartNameId : MappingNames) {
         const FSmartNameMapping* Mapping = Container.GetContainer(SmartNameId);
+    	if (Mapping == NULL) {
+    		continue;
+    	}
         
         TSharedPtr<FJsonObject> NameMapping = MakeShareable(new FJsonObject());
         NameMapping->SetStringField(TEXT("Name"), SmartNameId.ToString());

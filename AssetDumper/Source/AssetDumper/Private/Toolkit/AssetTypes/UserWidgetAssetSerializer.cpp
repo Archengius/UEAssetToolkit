@@ -4,13 +4,11 @@
 #include "Toolkit/AssetDumping/AssetTypeSerializerMacros.h"
 #include "Toolkit/AssetDumping/SerializationContext.h"
 #include "Toolkit/AssetTypes/BlueprintAssetSerializer.h"
+#include "Components/NamedSlot.h"
 
 void UUserWidgetAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext> Context) const {
     BEGIN_ASSET_SERIALIZATION_BP(UWidgetBlueprintGeneratedClass)
-
-    //Disable serialization of fully expanded widget tree templates, we do not need them
-    DISABLE_SERIALIZATION_RAW(UWidgetBlueprintGeneratedClass, "TemplateAsset");
-    DISABLE_SERIALIZATION_RAW(UWidgetBlueprintGeneratedClass, "Template");
+    //DISABLE_SERIALIZATION_RAW(UWidgetBlueprintGeneratedClass, "TemplateAsset");
     
     UBlueprintAssetSerializer::SerializeBlueprintClass(Asset, Data, Context);
 
@@ -19,7 +17,7 @@ void UUserWidgetAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext
     UBlueprintAssetSerializer::CollectGeneratedVariables(Asset, GeneratedVariableNames);
 
     //Also append widget tree generated variables
-    Asset->WidgetTree->ForEachWidget([&](const UWidget* Widget){
+    Asset->GetWidgetTreeArchetype()->ForEachWidget([&](const UWidget* Widget){
         bool bIsVariable = Widget->bIsVariable;
          bIsVariable |= Asset->Bindings.ContainsByPredicate([&Widget] (const FDelegateRuntimeBinding& Binding) {
              return Binding.ObjectName == Widget->GetName();

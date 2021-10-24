@@ -3,7 +3,7 @@
 #include "EdGraphSchema_K2.h"
 #include "Engine/Blueprint.h"
 #include "Engine/LatentActionManager.h"
-#include "Toolkit/PropertyTypeHandler.h"
+#include "Toolkit/PropertyTypeHelper.h"
 
 FKismetBytecodeTransformer::FKismetBytecodeTransformer(UBlueprint* Blueprint) {
     this->OwnerBlueprint = Blueprint;
@@ -321,8 +321,8 @@ TSharedPtr<FKismetCompiledStatement> FKismetBytecodeTransformer::ProcessStatemen
         TArray<TSharedPtr<FJsonValue>> Parameters = Statement->GetArrayField(TEXT("Parameters"));
 
         int32 NumParams = 0;
-        for (TFieldIterator<UProperty> PropIt(Result->FunctionToCall); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt) {
-            UProperty* FuncParamProperty = *PropIt;
+        for (TFieldIterator<FProperty> PropIt(Result->FunctionToCall); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt) {
+           FProperty* FuncParamProperty = *PropIt;
 
             //Skip return values because they are handled in a special way when we happened to be an expression in EX_Let statement
             if (!FuncParamProperty->HasAnyPropertyFlags(CPF_ReturnParm)) {
@@ -720,7 +720,7 @@ TSharedPtr<FKismetTerminal> FKismetBytecodeTransformer::ProcessLiteralExpression
         for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Properties->Values) {
             const TArray<TSharedPtr<FJsonValue>> PropertyValueArray = Pair.Value->AsArray();
             const FString& PropertyName = Pair.Key;
-            UProperty* Property = ScriptStruct->FindPropertyByName(*PropertyName);
+            FProperty* Property = ScriptStruct->FindPropertyByName(*PropertyName);
             checkf(Property, TEXT("Cannot resolve struct property %s in %s"), *PropertyName, *ScriptStruct->GetPathName());
 
             for (int32 ArrayIter = 0; ArrayIter < Property->ArrayDim; ++ArrayIter) {
@@ -730,11 +730,11 @@ TSharedPtr<FKismetTerminal> FKismetBytecodeTransformer::ProcessLiteralExpression
                 //Thing is, all of the constant values are serialized in the way compatible in ImportText/ExportText
                 //methods implementation on common property types. So we can just call ImportText with StringLiteral
                 //and handle other types of constants manually
-                if (UTextProperty* TextProperty = Cast<UTextProperty>(Property)) {
+                if (FTextProperty* TextProperty = CastField<FTextProperty>(Property)) {
                     const FText& TextPropertyValue = PropertyValue->TextLiteral;
                     TextProperty->SetPropertyValue_InContainer(AllocatedStructInstance, TextPropertyValue, ArrayIter);
                     
-                } else if (UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property)) {
+                } else if (FObjectProperty* ObjectProperty = CastField<FObjectProperty>(Property)) {
                     UObject* ObjectPropertyValue = PropertyValue->ObjectLiteral;
                     ObjectProperty->SetPropertyValue_InContainer(AllocatedStructInstance, ObjectPropertyValue, ArrayIter);
                 } else {
@@ -1012,8 +1012,8 @@ TSharedPtr<FKismetCompiledStatement> FKismetBytecodeTransformer::ProcessFunction
     int32 NumParams = 0;
     int32 LatentInfoParameterIndex = -1;
     
-    for (TFieldIterator<UProperty> PropIt(Result->FunctionToCall); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt) {
-        UProperty* FuncParamProperty = *PropIt;
+    for (TFieldIterator<FProperty> PropIt(Result->FunctionToCall); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt) {
+        FProperty* FuncParamProperty = *PropIt;
 
         //Skip return values because they are handled in a special way when we happened to be an expression in EX_Let statement
         if (!FuncParamProperty->HasAnyPropertyFlags(CPF_ReturnParm)) {
@@ -1164,7 +1164,7 @@ TSharedPtr<FKismetTerminal> FKismetBytecodeTransformer::ProcessFunctionParameter
         //so we can retrieve return value type only after performing UFunction resolution of virtual function
         //We *could* do it during the bytecode disassembly, but it would be more difficult provided
         //that Kismet VM bytecode is much more flexible than compiled statement representation
-        UProperty* ReturnProperty = InlineFunctionCall->FunctionToCall->GetReturnProperty();
+        FProperty* ReturnProperty = InlineFunctionCall->FunctionToCall->GetReturnProperty();
         check(ReturnProperty);
 
         ParameterTerminal = MakeShareable(new FKismetTerminal());
