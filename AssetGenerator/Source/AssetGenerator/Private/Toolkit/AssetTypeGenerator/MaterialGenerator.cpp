@@ -1,7 +1,6 @@
 #include "Toolkit/AssetTypeGenerator/MaterialGenerator.h"
 
 #include "LandscapeGrassType.h"
-#include "Dom/JsonValue.h"
 #include "Engine/Texture.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "MaterialEditor/Public/MaterialEditingLibrary.h"
@@ -37,7 +36,9 @@ static const TArray<FName> ExcludedMaterialDumpProperties = {
 	//Compared manually due to some nuances regarding ordering/StateIds of the dependencies
 	TEXT("CachedExpressionData"),
 	//Can be rebuild by the editor sometimes during world operations
-	TEXT("TextureStreamingData")
+	TEXT("TextureStreamingData"),
+	//Set by material compiler automatically, cannot be set manually from the editor
+	TEXT("bUsesDistortion")
 };
 
 void UMaterialGenerator::PostInitializeAssetGenerator() {
@@ -49,7 +50,7 @@ void UMaterialGenerator::PostInitializeAssetGenerator() {
 }
 
 void UMaterialGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UMaterial* Material = NewObject<UMaterial>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, Material);
 
@@ -805,10 +806,10 @@ void UMaterialGenerator::DetectMaterialParameterChanges(const FMaterialCachedPar
 	TMap<FName, FIndexedParameterInfo> OldParameters;
 	TMap<FName, FIndexedParameterInfo> NewParameters;
 
-	const FMaterialCachedParameterEntry* OldEntryArray = OldParams.Entries;
-	const FMaterialCachedParameterEntry* NewEntryArray = NewParams.Entries;
+	const FMaterialCachedParameterEntry* OldEntryArray = OldParams.RuntimeEntries;
+	const FMaterialCachedParameterEntry* NewEntryArray = NewParams.RuntimeEntries;
 	
-	for (int32 ParameterTypeRaw = 0; ParameterTypeRaw < NumMaterialParameterTypes; ParameterTypeRaw++) {
+	for (int32 ParameterTypeRaw = 0; ParameterTypeRaw < NumMaterialRuntimeParameterTypes; ParameterTypeRaw++) {
 		
 		EMaterialParameterType ParameterType = (EMaterialParameterType) ParameterTypeRaw;
 		

@@ -5,7 +5,7 @@
 #include "Toolkit/AssetTypes/AssetHelper.h"
 
 void UFontFaceGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UFontFace* NewFontFace = NewObject<UFontFace>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewFontFace);
 	

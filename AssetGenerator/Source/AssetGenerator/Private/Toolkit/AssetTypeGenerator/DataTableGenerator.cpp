@@ -6,7 +6,7 @@
 #include "UObject/StructOnScope.h"
 
 void UDataTableGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UDataTable* NewDataTable = NewObject<UDataTable>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewDataTable);
 
@@ -96,15 +96,21 @@ bool UDataTableGenerator::IsDataTableUpToDate(UDataTable* DataTable, const FTabl
 }
 
 void UDataTableGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
+		TArray<FString> OutReferencedPackages;
+		const int32 RowStructObjectIndex = GetAssetData()->GetIntegerField(TEXT("RowStruct"));
+		GetObjectSerializer()->CollectObjectPackages(RowStructObjectIndex, OutReferencedPackages);
+
+		for (const FString& DependencyPackageName : OutReferencedPackages) {
+			OutDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
+		}
+	}
 	if (GetCurrentStage() == EAssetGenerationStage::DATA_POPULATION) {
 		const TArray<TSharedPtr<FJsonValue>> ReferencedObjects = GetAssetData()->GetArrayField(TEXT("ReferencedObjects"));
 		
 		TArray<FString> OutReferencedPackages;
 		GetObjectSerializer()->CollectReferencedPackages(ReferencedObjects, OutReferencedPackages);
-
-		const int32 RowStructObjectIndex = GetAssetData()->GetIntegerField(TEXT("RowStruct"));
-		GetObjectSerializer()->CollectObjectPackages(RowStructObjectIndex, OutReferencedPackages);
-
+		
 		for (const FString& DependencyPackageName : OutReferencedPackages) {
 			OutDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
 		}

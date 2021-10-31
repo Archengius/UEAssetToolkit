@@ -3,7 +3,7 @@
 #include "Engine/DeveloperSettings.h"
 #include "AssetGeneratorSettings.generated.h"
 
-UCLASS(Config = Editor, DefaultConfig, meta = (DisplayName = "SML Asset Generator Settings"))
+UCLASS(Config = Editor, DefaultConfig, meta = (DisplayName = "Asset Generator Settings"))
 class ASSETGENERATOR_API UAssetGeneratorSettings : public UDeveloperSettings {
 	GENERATED_BODY()
 public:

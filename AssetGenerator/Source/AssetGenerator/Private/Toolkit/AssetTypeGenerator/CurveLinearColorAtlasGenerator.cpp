@@ -4,7 +4,7 @@
 #include "Toolkit/AssetTypeGenerator/Texture2DGenerator.h"
 
 void UCurveLinearColorAtlasGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UCurveLinearColorAtlas* NewAsset = NewObject<UCurveLinearColorAtlas>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewAsset);
 	

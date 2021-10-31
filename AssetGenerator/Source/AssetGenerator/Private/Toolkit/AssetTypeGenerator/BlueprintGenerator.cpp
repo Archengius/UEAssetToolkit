@@ -17,18 +17,31 @@
 #include "Animation/AnimBlueprint.h"
 
 UBlueprint* UBlueprintGenerator::CreateNewBlueprint(UPackage* Package, UClass* ParentClass) {
-	return FKismetEditorUtilities::CreateBlueprint(ParentClass, Package, GetAssetName(), BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
+	EBlueprintType BlueprintType = BPTYPE_Normal;
+
+	if (ParentClass->HasAnyClassFlags(CLASS_Const)) {
+		BlueprintType = BPTYPE_Const;
+	}
+	if (ParentClass == UBlueprintFunctionLibrary::StaticClass()) {
+		BlueprintType = BPTYPE_FunctionLibrary;
+	}
+	if (ParentClass == UInterface::StaticClass()) {
+		BlueprintType = BPTYPE_Interface;
+	}
+	return FKismetEditorUtilities::CreateBlueprint(ParentClass, Package, GetAssetName(), BlueprintType, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
 }
 
 void UBlueprintGenerator::CreateAssetPackage() {
 	const int32 SuperStructIndex = GetAssetData()->GetIntegerField(TEXT("SuperStruct"));
 	UClass* ParentClass = CastChecked<UClass>(GetObjectSerializer()->DeserializeObject(SuperStructIndex));
 
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UBlueprint* NewBlueprint = CreateNewBlueprint(NewPackage, ParentClass);
-	SetPackageAndAsset(NewPackage, NewBlueprint);
+	SetPackageAndAsset(NewPackage, NewBlueprint, false);
 
-    MarkAssetChanged();
+	UpdateDeserializerBlueprintClassObject(true);
+	MarkAssetChanged();
+	
 	PostConstructOrUpdateAsset(NewBlueprint);
 }
 
@@ -88,12 +101,12 @@ void UBlueprintGenerator::PostConstructOrUpdateAsset(UBlueprint* Blueprint) {
 	}
 
 	//Recompile blueprint if asset has actually been changed
-	if (HasAssetBeenEverChanged()) {
-		FBlueprintCompilationManager::CompileSynchronously(FBPCompileRequest(Blueprint, EBlueprintCompileOptions::None, NULL));
-	}
+	UpdateDeserializerBlueprintClassObject(HasAssetBeenEverChanged());
 }
 
 void UBlueprintGenerator::PopulateAssetWithData() {
+	UpdateDeserializerBlueprintClassObject(false);
+	
 	UBlueprint* Blueprint = GetAsset<UBlueprint>();
 
 	const TArray<TSharedPtr<FJsonValue>>& ChildProperties = GetAssetData()->GetArrayField(TEXT("ChildProperties"));
@@ -125,12 +138,12 @@ void UBlueprintGenerator::PopulateAssetWithData() {
 	//Regenerate blueprint properties
 	const bool bChangedProperties = FBlueprintGeneratorUtils::CreateBlueprintVariablesForProperties(Blueprint, Properties, FunctionMap,
 		[&](const FDeserializedProperty& Property){
-		return GeneratedVariableNames.Contains(Property.PropertyName);
+		return !GeneratedVariableNames.Contains(Property.PropertyName);
 	});
 
 	//Force blueprint compilation after we have changed any properties
 	if (bChangedProperties) {
-		FBlueprintCompilationManager::CompileSynchronously(FBPCompileRequest(Blueprint, EBlueprintCompileOptions::None, NULL));
+		UpdateDeserializerBlueprintClassObject(true);
 		MarkAssetChanged();
 	}
 
@@ -142,40 +155,65 @@ void UBlueprintGenerator::PopulateAssetWithData() {
 
 	//Recompile blueprint so all the function changed are visible
 	if (bChangedFunctions) {
-		FBlueprintCompilationManager::CompileSynchronously(FBPCompileRequest(Blueprint, EBlueprintCompileOptions::None, NULL));
+		UpdateDeserializerBlueprintClassObject(true);
 		MarkAssetChanged();
 	}
 }
 
 void UBlueprintGenerator::FinalizeAssetCDO() {
+	UpdateDeserializerBlueprintClassObject(false);
+	
 	UBlueprint* Blueprint = GetAsset<UBlueprint>();
+	USimpleConstructionScript* OldSimpleConstructionScript = Blueprint->SimpleConstructionScript;
+	
+	//TEMPFIX: Move SCS to the correct outer if it does not have one already
+	if (OldSimpleConstructionScript != NULL && OldSimpleConstructionScript->GetOuter() != Blueprint->GeneratedClass) {
+		OldSimpleConstructionScript->Rename(NULL, Blueprint->GeneratedClass, REN_DoNothing);
+	}
 
 	//Flush CDO changes into the existing class default object
 	UObject* ClassDefaultObject = Blueprint->GeneratedClass->GetDefaultObject();
 	const int32 ClassDefaultObjectIndex = GetAssetData()->GetIntegerField(TEXT("ClassDefaultObject"));
-	const bool bCDOChanged = GetObjectSerializer()->CompareUObjects(ClassDefaultObjectIndex, ClassDefaultObject, false, false);
+	const bool bCDOChanged = !GetObjectSerializer()->CompareUObjects(
+		ClassDefaultObjectIndex, ClassDefaultObject, false, false);
 	
 	if (ClassDefaultObject && bCDOChanged) {
 		GetObjectSerializer()->FlushPropertiesIntoObject(ClassDefaultObjectIndex, ClassDefaultObject, false, false);
 
-		FBlueprintCompilationManager::CompileSynchronously(FBPCompileRequest(Blueprint, EBlueprintCompileOptions::None, NULL));
+		UpdateDeserializerBlueprintClassObject(true);
 		MarkAssetChanged();
 	}
 
 	//Flush SimpleConstructionScript changes too
-	USimpleConstructionScript* SimpleConstructionScript = Blueprint->SimpleConstructionScript;
-	const int32 SCSIndex = GetAssetData()->GetObjectField(TEXT("AssetObjectData"))->GetIntegerField(TEXT("SimpleConstructionScript"));
-	const bool bSCSChanged = GetObjectSerializer()->CompareUObjects(SCSIndex, SimpleConstructionScript, false, false);
+	const TSharedPtr<FJsonObject> AssetObjectData = GetAssetData()->GetObjectField(TEXT("AssetObjectData"));
+	const int32 SimpleConstructionScriptIndex = AssetObjectData->GetIntegerField(TEXT("SimpleConstructionScript"));
+	
+	const bool bScriptObjectChanged = !GetObjectSerializer()->CompareUObjects(
+		SimpleConstructionScriptIndex, OldSimpleConstructionScript, false, false);
+	
+	if (bScriptObjectChanged) {
+		//Trash out old SimpleConstructionScript so we can straight up replace it with the new one
+		MoveToTransientPackageAndRename(Blueprint->SimpleConstructionScript);
 
-	if (SCSIndex != INDEX_NONE && bSCSChanged) {
-		if (SimpleConstructionScript == NULL) {
-			Blueprint->SimpleConstructionScript = NewObject<USimpleConstructionScript>(Blueprint);
-		}
-		GetObjectSerializer()->FlushPropertiesIntoObject(SCSIndex, SimpleConstructionScript, false, false);
+		//Deserialize new SCS, update the flags accordingly and assign it to the blueprint
+		//There is no need to duplicate it because it's owner is actually supposed to be the BPGC (for whatever reason)
+		UObject* SimpleConstructionScript = GetObjectSerializer()->DeserializeObject(SimpleConstructionScriptIndex);
+		SimpleConstructionScript->SetFlags(RF_Transactional);
+		Blueprint->SimpleConstructionScript = CastChecked<USimpleConstructionScript>(SimpleConstructionScript);
 		
-		FBlueprintCompilationManager::CompileSynchronously(FBPCompileRequest(Blueprint, EBlueprintCompileOptions::None, NULL));
+		UpdateDeserializerBlueprintClassObject(true);
 		MarkAssetChanged();
 	}
+}
+
+void UBlueprintGenerator::UpdateDeserializerBlueprintClassObject(bool bRecompileBlueprint) {
+	UBlueprint* Blueprint = GetAsset<UBlueprint>();
+	if (bRecompileBlueprint) {
+		FBlueprintCompilationManager::CompileSynchronously(FBPCompileRequest(Blueprint, EBlueprintCompileOptions::None, NULL));
+	}
+
+	UClass* BlueprintGeneratedClass = Blueprint->GeneratedClass;
+	GetObjectSerializer()->SetObjectMark(CastChecked<UClass>(BlueprintGeneratedClass), TEXT("$AssetObject$"));
 }
 
 void UBlueprintGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
@@ -254,8 +292,11 @@ FName UBlueprintGenerator::GetAssetClass() {
 //Never generate __DelegateSignature methods, they are automatically handled
 //ExecuteUbergraph methods should also never be generated, since they have corresponding function entries
 bool FBlueprintGeneratorUtils::IsFunctionNameGenerated(const FString& FunctionName) {
-	return FunctionName.EndsWith(HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX) &&
-		FunctionName.StartsWith(UEdGraphSchema_K2::FN_ExecuteUbergraphBase.ToString());
+	return FunctionName.EndsWith(HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX) ||
+		FunctionName.StartsWith(UEdGraphSchema_K2::FN_ExecuteUbergraphBase.ToString()) ||
+		FunctionName.StartsWith(TEXT("SequenceEvent__ENTRYPOINT")) ||
+		FunctionName.StartsWith(TEXT("BndEvt__")) ||
+		FunctionName.StartsWith(TEXT("InpActEvt_"));
 }
 
 //UberGraphFrame properties should never be generated

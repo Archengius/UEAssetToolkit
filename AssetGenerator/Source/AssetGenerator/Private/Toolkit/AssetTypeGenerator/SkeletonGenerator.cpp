@@ -1,8 +1,6 @@
 #include "Toolkit/AssetTypeGenerator/SkeletonGenerator.h"
 #include "Dom/JsonObject.h"
 #include "Toolkit/ObjectHierarchySerializer.h"
-#include "Toolkit/PropertySerializer.h"
-#include "Toolkit/AssetDumping/AssetTypeSerializerMacros.h"
 
 FSkeletonCompareData::FSkeletonCompareData(const TSharedPtr<FJsonObject>& AssetData) {
 	const TSharedPtr<FJsonObject> ReferenceSkeleton = AssetData->GetObjectField(TEXT("ReferenceSkeleton"));
@@ -174,6 +172,15 @@ bool FSkeletonCompareData::ApplySkeletonChanges(USkeleton* Skeleton) const {
 		}
 	}
 
+	//MAKE SURE BONE TREE HAS THE CORRECT SIZE
+	FProperty* BoneTreeProperty = USkeleton::StaticClass()->FindPropertyByName(TEXT("BoneTree"));
+	TArray<FBoneNode>* ExistingBoneTree = BoneTreeProperty->ContainerPtrToValuePtr<TArray<FBoneNode>>(Skeleton);
+	
+	if (ExistingBoneTree->Num() != BoneTree.Num()) {
+		ExistingBoneTree->Empty();
+		ExistingBoneTree->AddZeroed(BoneTree.Num());
+	}
+	
 	//APPLY BONE TREE MODIFICATIONS AFTER WE HAVE CHANGED REFERENCE SKELETON
 	for (int32 BoneIndex = 0; BoneIndex < BoneTree.Num(); BoneIndex++) {
 		const EBoneTranslationRetargetingMode::Type TranslationRetargetingMode = BoneTree[BoneIndex];
@@ -185,11 +192,11 @@ bool FSkeletonCompareData::ApplySkeletonChanges(USkeleton* Skeleton) const {
 		//Find bone index in the existing reference skeleton matching the provided bone name
 		const int32 TargetBoneIndex = ExistingReferenceSkeleton.FindRawBoneIndex(BoneName);
 		check(TargetBoneIndex != INDEX_NONE);
-
+		
 		const EBoneTranslationRetargetingMode::Type ExistingType = Skeleton->GetBoneTranslationRetargetingMode(TargetBoneIndex);
 		
 		if (ExistingType != TranslationRetargetingMode) {
-			Skeleton->SetBoneTranslationRetargetingMode(TargetBoneIndex, TranslationRetargetingMode);
+			Skeleton->SetBoneTranslationRetargetingMode(TargetBoneIndex, TranslationRetargetingMode, false);
 			bModifiedSkeleton = true;
 		}
 	}
@@ -255,7 +262,7 @@ bool FSkeletonCompareData::ApplySkeletonChanges(USkeleton* Skeleton) const {
 }
 
 void USkeletonGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	USkeleton* NewAssetObject = NewObject<USkeleton>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewAssetObject);
 
@@ -283,7 +290,7 @@ void USkeletonGenerator::OnExistingPackageLoaded() {
 	const TSharedPtr<FJsonObject> AssetObjectProperties = AssetData->GetObjectField(TEXT("AssetObjectData"));
 	
 	if (!GetObjectSerializer()->AreObjectPropertiesUpToDate(AssetObjectProperties.ToSharedRef(), ExistingAssetObject)) {
-		UE_LOG(LogAssetGenerator, Display, TEXT("Skeleton %s Properties is not up to date"), *ExistingAssetObject->GetPathName());
+		UE_LOG(LogAssetGenerator, Display, TEXT("Skeleton %s Properties are not up to date"), *ExistingAssetObject->GetPathName());
 		GetObjectSerializer()->DeserializeObjectProperties(AssetObjectProperties.ToSharedRef(), ExistingAssetObject);
 		MarkAssetChanged();
 	}

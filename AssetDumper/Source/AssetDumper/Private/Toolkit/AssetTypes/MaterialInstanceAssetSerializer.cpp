@@ -7,7 +7,7 @@
 
 void UMaterialInstanceAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext> Context) const {
     BEGIN_ASSET_SERIALIZATION(UMaterialInstanceConstant)
-	DISABLE_SERIALIZATION(FStaticParameterSet, MaterialLayersParameters);
+    DISABLE_SERIALIZATION(FStaticParameterSet, MaterialLayersParameters);
     SERIALIZE_ASSET_OBJECT
     END_ASSET_SERIALIZATION
 }

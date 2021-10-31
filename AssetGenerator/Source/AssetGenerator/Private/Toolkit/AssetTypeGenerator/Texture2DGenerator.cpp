@@ -7,7 +7,7 @@
 #include "Toolkit/ObjectHierarchySerializer.h"
 
 void UTexture2DGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UTexture2D* NewTexture = NewObject<UTexture2D>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewTexture);
 	
@@ -111,6 +111,14 @@ void UTexture2DGenerator::RebuildTextureData(UTexture2D* Texture, const FString&
 	const TSharedPtr<FJsonObject> TextureProperties = AssetData->GetObjectField(TEXT("AssetObjectData"));
 	ObjectSerializer->DeserializeObjectProperties(TextureProperties.ToSharedRef(), Texture);
 
+	//Disable mips by default if we are not sized appropriately for their generation
+	const int32 Log2Int = (int32) FMath::Log2(TextureWidth);
+	const int32 ClosestPowerOfTwoSize = 1 << Log2Int;
+	
+	if (TextureWidth != TextureHeight || TextureWidth != ClosestPowerOfTwoSize) {
+		Texture->MipGenSettings = TextureMipGenSettings::TMGS_NoMipmaps;
+	}
+	
 	//Force no MipMaps policy if specified in the settings
 	const UAssetGeneratorSettings* Settings = UAssetGeneratorSettings::Get();
 	if (Settings->PackagesToForceNoMipMaps.Contains(Texture->GetOutermost()->GetName())) {

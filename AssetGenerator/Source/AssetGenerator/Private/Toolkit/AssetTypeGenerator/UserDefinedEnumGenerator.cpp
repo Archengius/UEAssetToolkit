@@ -4,7 +4,7 @@
 #include "Toolkit/ObjectHierarchySerializer.h"
 
 void UUserDefinedEnumGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UUserDefinedEnum* NewEnum = NewObject<UUserDefinedEnum>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewEnum);
 
@@ -49,7 +49,7 @@ void UUserDefinedEnumGenerator::PopulateEnumWithData(UUserDefinedEnum* Enum) {
 		ResultEnumNames.Add(TPair<FName, int64>(NewFullName, Value));
 	}
 	
-	Enum->SetEnums(ResultEnumNames, UEnum::ECppForm::Namespaced, true);
+	Enum->SetEnums(ResultEnumNames, UEnum::ECppForm::Namespaced);
 	check(LastNamePair->GetIntegerField(TEXT("Value")) == Enum->GetMaxEnumValue());
 
 	//Update display names according to the json ones

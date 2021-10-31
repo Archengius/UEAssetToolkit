@@ -8,7 +8,7 @@
 #include "Factories/ReimportFbxAnimSequenceFactory.h"
 
 void UAnimSequenceGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UAnimSequence* NewAnimSequence = ImportAnimation(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewAnimSequence);
 	PopulateAnimationProperties(NewAnimSequence);
@@ -48,7 +48,7 @@ UAnimSequence* UAnimSequenceGenerator::ImportAnimation(UPackage* Package, const 
 }
 
 void UAnimSequenceGenerator::ReimportAnimationFromSource(UAnimSequence* Asset) {
-	UClass* ReimportFbxAnimSequenceFactoryClass = FindObjectChecked<UClass>(NULL, TEXT("/Script/Engine.ReimportFbxAnimSequenceFactory"));
+	UClass* ReimportFbxAnimSequenceFactoryClass = FindObjectChecked<UClass>(NULL, TEXT("/Script/UnrealEd.ReimportFbxAnimSequenceFactory"));
 	UReimportFbxAnimSequenceFactory* AnimationFactory = static_cast<UReimportFbxAnimSequenceFactory*>(NewObject<UObject>(GetTransientPackage(), ReimportFbxAnimSequenceFactoryClass));
 	
 	AnimationFactory->SetAutomatedAssetImportData(NewObject<UAutomatedAssetImportData>(AnimationFactory));
@@ -102,6 +102,11 @@ bool UAnimSequenceGenerator::IsAnimationPropertiesUpToDate(UAnimSequence* Asset)
 }
 
 bool UAnimSequenceGenerator::IsAnimationSourceUpToDate(UAnimSequence* Asset) const {
+	//TEMPFIX: Old dump files do not have the correct model file hash inside of them, so assume asset is up to date when it is missing
+	if (!GetAssetData()->HasField(TEXT("ModelFileHash"))) {
+		return true;
+	}
+	
 	const FAssetImportInfo& AssetImportInfo = Asset->AssetImportData->SourceData;
 	const FMD5Hash& ExistingFileHash = AssetImportInfo.SourceFiles[0].FileHash;
 	

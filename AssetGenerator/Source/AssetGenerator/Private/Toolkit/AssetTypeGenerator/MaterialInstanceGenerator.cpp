@@ -1,5 +1,4 @@
 #include "Toolkit/AssetTypeGenerator/MaterialInstanceGenerator.h"
-#include "Dom/JsonValue.h"
 #include "Materials/MaterialExpressionStaticBoolParameter.h"
 #include "Materials/MaterialExpressionStaticComponentMaskParameter.h"
 #include "Materials/MaterialExpressionStaticSwitchParameter.h"
@@ -30,6 +29,10 @@ void UMaterialInstanceGenerator::PostInitializeAssetGenerator() {
 	//do not deserialize material layers, we do not regenerate materials functions anyway
 	DISABLE_SERIALIZATION(FStaticParameterSet, MaterialLayersParameters);
 	DISABLE_SERIALIZATION(FStaticParameterSet, TerrainLayerWeightParameters);
+
+	//deserialize manually to avoid cyclic dependencies
+	DISABLE_SERIALIZATION_RAW(UMaterialInterface, "AssetUserData");
+	this->AssetUserDataProperty = UMaterialInterface::StaticClass()->FindPropertyByName(TEXT("AssetUserData"));
 }
 
 UClass* UMaterialInstanceGenerator::GetAssetObjectClass() const {
@@ -44,6 +47,60 @@ FStaticParameterSet UMaterialInstanceGenerator::GetStaticParameterOverrides() co
 	FStaticParameterSet StaticParameterOverrides;
 	GetPropertySerializer()->DeserializeStruct(FStaticParameterSet::StaticStruct(), StaticParametersObject.ToSharedRef(), &StaticParameterOverrides);
 	return StaticParameterOverrides;
+}
+
+void UMaterialInstanceGenerator::PopulateStageDependencies(TArray<FAssetDependency>& AssetDependencies) const {
+	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
+		const TSharedPtr<FJsonObject> AssetData = GetAssetData();
+		const TSharedPtr<FJsonObject> AssetObjectProperties = AssetData->GetObjectField(TEXT("AssetObjectData"));
+
+		const TArray<TSharedPtr<FJsonValue>> AssetUserDataObjects = AssetObjectProperties->GetArrayField(TEXT("AssetUserData"));
+		const TArray<TSharedPtr<FJsonValue>> ReferencedObjects = AssetObjectProperties->GetArrayField(TEXT("$ReferencedObjects"));
+
+		TArray<int32> AssetUserDataObjectIndices;
+		for (const TSharedPtr<FJsonValue>& ObjectIndexValue : AssetUserDataObjects) {
+			AssetUserDataObjectIndices.Add((int32) ObjectIndexValue->AsNumber());
+		}
+		
+		TArray<FString> ReferencedPackages;
+		for (const TSharedPtr<FJsonValue>& ObjectIndexValue : ReferencedObjects) {
+			const int32 ObjectIndex = (int32) ObjectIndexValue->AsNumber();
+
+			if (!AssetUserDataObjectIndices.Contains(ObjectIndex)) {
+				GetObjectSerializer()->CollectObjectPackages(ObjectIndex, ReferencedPackages);
+			}
+		}
+
+		for (const FString& DependencyPackageName : ReferencedPackages) {
+			AssetDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
+		}
+	}
+	
+	if (GetCurrentStage() == EAssetGenerationStage::PRE_FINSHED) {
+		TArray<FString> ReferencedPackages;
+		const TSharedPtr<FJsonObject> AssetData = GetAssetData();
+		const TSharedPtr<FJsonObject> AssetObjectProperties = AssetData->GetObjectField(TEXT("AssetObjectData"));
+
+		const TArray<TSharedPtr<FJsonValue>> AssetUserDataObjects = AssetObjectProperties->GetArrayField(TEXT("AssetUserData"));
+
+		for (const TSharedPtr<FJsonValue>& AssetObjectValue : AssetUserDataObjects) {
+			const int32 ObjectIndex = (int32) AssetObjectValue->AsNumber();
+			GetObjectSerializer()->CollectObjectPackages(ObjectIndex, ReferencedPackages);
+		}
+		for (const FString& PackageName : ReferencedPackages) {
+			AssetDependencies.Add(FAssetDependency{*PackageName, EAssetGenerationStage::CDO_FINALIZATION});	
+		}
+	}
+}
+
+void UMaterialInstanceGenerator::PreFinishAssetGeneration() {
+	UMaterialInterface* Asset = GetAsset<UMaterialInterface>();
+	const TSharedPtr<FJsonObject> AssetObjectProperties = GetAssetData()->GetObjectField(TEXT("AssetObjectData"));
+	
+	void* AssetUserData = AssetUserDataProperty->ContainerPtrToValuePtr<void>(Asset);
+	const TSharedPtr<FJsonValue> AssetUserDataJson = AssetObjectProperties->GetField<EJson::Array>(TEXT("AssetUserData"));
+	
+	GetPropertySerializer()->DeserializePropertyValue(AssetUserDataProperty, AssetUserDataJson.ToSharedRef(), AssetUserData);
 }
 
 void EnsureStaticSwitchNodesPresent(UMaterial* Material, const FStaticParameterSet& StaticParameters) {
@@ -108,7 +165,16 @@ void UMaterialInstanceGenerator::PopulateSimpleAssetWithData(UObject* Asset) {
 
 bool UMaterialInstanceGenerator::IsSimpleAssetUpToDate(UObject* Asset) const {
 	UMaterialInstanceConstant* MaterialInstance = CastChecked<UMaterialInstanceConstant>(Asset);
+	const TSharedPtr<FJsonObject> AssetObjectProperties = GetAssetData()->GetObjectField(TEXT("AssetObjectData"));
+	
 	if (!Super::IsSimpleAssetUpToDate(Asset)) {
+		return false;
+	}
+	
+	const void* AssetUserData = AssetUserDataProperty->ContainerPtrToValuePtr<void>(Asset);
+	const TSharedPtr<FJsonValue> AssetUserDataJson = AssetObjectProperties->GetField<EJson::Array>(TEXT("AssetUserData"));
+
+	if (!GetPropertySerializer()->ComparePropertyValues(AssetUserDataProperty, AssetUserDataJson.ToSharedRef(), AssetUserData)) {
 		return false;
 	}
 

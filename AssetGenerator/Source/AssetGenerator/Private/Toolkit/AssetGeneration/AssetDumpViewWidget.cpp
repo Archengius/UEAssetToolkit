@@ -227,6 +227,7 @@ void SAssetDumpViewWidget::SetAssetDumpRootDirectory(const FString& RootDirector
 	this->RootNode->RootDirectory = RootDirectory;
 	this->RootNode->DiskPackagePath = RootDirectory;
 	this->RootNode->SetupPackageNameFromDiskPath();
+	this->RootNode->UpdateSelectedState(true, false);
 
 	this->RootAssetPaths.Empty();
 	this->RootNode->GetChildrenNodes(RootAssetPaths);

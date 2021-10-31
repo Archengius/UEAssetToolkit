@@ -27,7 +27,11 @@ void UAnimationSequenceAssetSerializer::SerializeAsset(TSharedRef<FSerialization
     FString OutErrorMessage;
     const bool bSuccess = FFbxMeshExporter::ExportAnimSequenceIntoFbxFile(Asset, OutFbxFileName, false, &OutErrorMessage);
     checkf(bSuccess, TEXT("Failed to export anim sequence %s: %s"), *Asset->GetPathName(), *OutErrorMessage);
-    
+
+	//Serialize exported model hash to avoid reading it during generation pass
+	const FMD5Hash ModelFileHash = FMD5Hash::HashFile(*OutFbxFileName);
+	Data->SetStringField(TEXT("ModelFileHash"), LexToString(ModelFileHash));
+	
     END_ASSET_SERIALIZATION
 }
 

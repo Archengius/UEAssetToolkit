@@ -2,6 +2,7 @@
 #include "FileHelpers.h"
 #include "Toolkit/ObjectHierarchySerializer.h"
 #include "Toolkit/PropertySerializer.h"
+#include "Toolkit/AssetGeneration/AssetGenerationUtil.h"
 
 DEFINE_LOG_CATEGORY(LogAssetGenerator)
 
@@ -32,6 +33,11 @@ void UAssetTypeGenerator::PopulateReferencedObjectsDependencies(TArray<FAssetDep
 	}
 }
 
+void UAssetTypeGenerator::MoveToTransientPackageAndRename(UObject* Object) {
+	Object->Rename(NULL, GetTransientPackage(), REN_DoNothing);
+	Object->SetFlags(RF_Transient);
+}
+
 UAssetTypeGenerator::UAssetTypeGenerator() {
 	this->PropertySerializer = CreateDefaultSubobject<UPropertySerializer>(TEXT("PropertySerializer"));
 	this->ObjectSerializer = CreateDefaultSubobject<UObjectHierarchySerializer>(TEXT("ObjectSerializer"));
@@ -59,7 +65,34 @@ void UAssetTypeGenerator::InitializeInternal(const FString& InPackageBaseDirecto
 	PostInitializeAssetGenerator();
 }
 
-void UAssetTypeGenerator::SetPackageAndAsset(UPackage* NewPackage, UObject* NewAsset) {
+void UAssetTypeGenerator::ConstructAssetAndPackage() {
+	UPackage* ExistingPackage = FindPackage(NULL, *PackageName.ToString());
+	if (!ExistingPackage) {
+		ExistingPackage = LoadPackage(NULL, *PackageName.ToString(), LOAD_Quiet);
+	}
+		
+	if (ExistingPackage == NULL) {
+		//Make new package if we don't have existing one, make sure asset object is also allocated
+		CreateAssetPackage();
+		checkf(AssetPackage, TEXT("CreateAssetPackage should call SetPackageAndAsset"));
+
+		//Make sure to mark package as changed because it has never been saved to disk before
+		MarkAssetChanged();
+	} else {
+		//Package already exist, reuse it while making sure out asset is contained within
+		UObject* AssetObject = FindObject<UObject>(ExistingPackage, *AssetName.ToString());
+
+		//We need to verify package exists and provide meaningful error message, so user knows what is wrong
+		checkf(AssetObject, TEXT("Existing package %s does not contain an asset named %s, requested by asset dump"), *PackageName.ToString(), *AssetName.ToString());
+		SetPackageAndAsset(ExistingPackage, AssetObject);
+			
+		//Notify generator we are reusing existing package, so it can do additional cleanup and settings
+		this->bUsingExistingPackage = true;
+		OnExistingPackageLoaded();
+	}
+}
+
+void UAssetTypeGenerator::SetPackageAndAsset(UPackage* NewPackage, UObject* NewAsset, bool bSetObjectMark) {
 	checkf(CurrentStage == EAssetGenerationStage::CONSTRUCTION, TEXT("SetPackageAndAsset can only be called during CONSTRUCTION"));
 	checkf(AssetPackage == NULL, TEXT("SetPackageAndAsset can only be called once during CreateAssetPackage"));
 	
@@ -71,56 +104,60 @@ void UAssetTypeGenerator::SetPackageAndAsset(UPackage* NewPackage, UObject* NewA
 	this->AssetObject = NewAsset;
 
 	ObjectSerializer->SetPackageForDeserialization(AssetPackage);
-	ObjectSerializer->SetObjectMark(AssetObject, TEXT("$AssetObject$"));
+	if (bSetObjectMark) {
+		ObjectSerializer->SetObjectMark(AssetObject, TEXT("$AssetObject$"));
+	}
 }
 
+void UAssetTypeGenerator::PopulateAssetWithData() {
+	this->bIsStageNotOverriden = true;
+}
 
-EAssetGenerationStage UAssetTypeGenerator::AdvanceGenerationState() {
-	if (CurrentStage == EAssetGenerationStage::CONSTRUCTION) {
-		UPackage* ExistingPackage = FindPackage(NULL, *PackageName.ToString());
-		if (!ExistingPackage) {
-			ExistingPackage = LoadPackage(NULL, *PackageName.ToString(), LOAD_Quiet);
-		}
-		
-		if (ExistingPackage == NULL) {
-			//Make new package if we don't have existing one, make sure asset object is also allocated
-			CreateAssetPackage();
-			checkf(AssetPackage, TEXT("CreateAssetPackage should call SetPackageAndAsset"));
+void UAssetTypeGenerator::FinalizeAssetCDO() {
+	this->bIsStageNotOverriden = true;
+}
 
-			//Make sure to mark package as changed because it has never been saved to disk before
-			MarkAssetChanged();
-		} else {
-			//Package already exist, reuse it while making sure out asset is contained within
-			UObject* AssetObject = FindObject<UObject>(ExistingPackage, *AssetName.ToString());
+void UAssetTypeGenerator::PreFinishAssetGeneration() {
+	this->bIsStageNotOverriden = true;
+}
 
-			//We need to verify package exists and provide meaningful error message, so user knows what is wrong
-			checkf(AssetObject, TEXT("Existing package %s does not contain an asset named %s, requested by asset dump"), *PackageName.ToString(), *AssetName.ToString());
-			SetPackageAndAsset(ExistingPackage, AssetObject);
-			
-			//Notify generator we are reusing existing package, so it can do additional cleanup and settings
-			this->bUsingExistingPackage = true;
-			OnExistingPackageLoaded();
-		}
+FGeneratorStateAdvanceResult UAssetTypeGenerator::AdvanceGenerationState() {
+	this->bIsStageNotOverriden = false;
+	this->bAssetChanged = false;
 
-		//Advance asset generation state, next state after construction is data population
-		this->CurrentStage = EAssetGenerationStage::DATA_POPULATION;
-		
-	} else if (CurrentStage == EAssetGenerationStage::DATA_POPULATION) {
-		this->PopulateAssetWithData();
-		this->CurrentStage = EAssetGenerationStage::CDO_FINALIZATION;
-
-	} else if (CurrentStage == EAssetGenerationStage::CDO_FINALIZATION) {
-		this->FinalizeAssetCDO();
-		this->CurrentStage = EAssetGenerationStage::FINISHED;
+	//Return early if we have already finished asset generation
+	if (CurrentStage == EAssetGenerationStage::FINISHED) {
+		return FGeneratorStateAdvanceResult{CurrentStage, false};
 	}
-
+	
+	//Dispatch current stage call to the appropriate method
+	if (CurrentStage == EAssetGenerationStage::CONSTRUCTION) {
+		this->ConstructAssetAndPackage();
+	}
+	if (CurrentStage == EAssetGenerationStage::DATA_POPULATION) {
+		this->PopulateAssetWithData();
+	}
+	if (CurrentStage == EAssetGenerationStage::CDO_FINALIZATION) {
+		this->FinalizeAssetCDO();
+	}
+	if (CurrentStage == EAssetGenerationStage::PRE_FINSHED) {
+		this->PreFinishAssetGeneration();
+	}
+		
+	//Increment current generation stage
+	this->CurrentStage = (EAssetGenerationStage) ((int32) CurrentStage + 1);
+	
 	//Force package to be saved to disk if it has been marked dirty at some point before
 	if (bAssetChanged) {
-		FEditorFileUtils::PromptForCheckoutAndSave({AssetPackage}, false, false);
+		TArray<UPackage*> PackagesToSave;
+		PackagesToSave.Add(AssetPackage);
+		GetAdditionalPackagesToSave(PackagesToSave);
+		
+		FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, false, false);
 		this->bAssetChanged = false;
 		this->bHasAssetEverBeenChanged = true;
 	}
-	return CurrentStage;
+	return FGeneratorStateAdvanceResult{CurrentStage, bIsStageNotOverriden};
 }
 
 FString UAssetTypeGenerator::GetAssetFilePath(const FString& RootDirectory, FName PackageName) {

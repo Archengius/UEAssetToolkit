@@ -1,12 +1,45 @@
 #include "Toolkit/ObjectHierarchySerializer.h"
 #include "Toolkit/PropertySerializer.h"
-#include "Toolkit/AssetTypes/AssetHelper.h"
 #include "UObject/Package.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogObjectHierarchySerializer, All, All);
 PRAGMA_DISABLE_OPTIMIZATION
 
 TSet<FName> UObjectHierarchySerializer::UnhandledNativeClasses;
+
+FObjectCompareSettings::FObjectCompareSettings() :
+	bCheckObjectName(true),
+	bCheckObjectOuter(true) {
+}
+
+FObjectCompareSettings::FObjectCompareSettings(bool bCheckObjectName, bool bCheckObjectOuter) {
+	this->bCheckObjectName = bCheckObjectName;
+	this->bCheckObjectOuter = bCheckObjectOuter;
+}
+
+FObjectCompareContext::FObjectCompareContext() {
+}
+
+void FObjectCompareContext::SetObjectSettings(int32 ObjectIndex, const FObjectCompareSettings& Settings) {
+	this->CompareSettings.Add(ObjectIndex, Settings);
+}
+
+bool FObjectCompareContext::HasObjectAlreadyBeenCompared(int32 ObjectIndex, UObject* Object) {
+	const auto ObjectPair = TPair<int32, UObject*>(ObjectIndex, Object);
+	if (ObjectsAlreadyCompared.Contains(ObjectPair)) {
+		return true;
+	}
+	ObjectsAlreadyCompared.Add(ObjectPair);
+	return false;
+}
+
+FObjectCompareSettings FObjectCompareContext::GetObjectSettings(int32 ObjectIndex) const {
+	FObjectCompareSettings const* Settings = CompareSettings.Find(ObjectIndex);
+	if (Settings == NULL) {
+		return FObjectCompareSettings();
+	}
+	return *Settings;
+}
 
 UObjectHierarchySerializer::UObjectHierarchySerializer() {
     this->LastObjectIndex = 0;
@@ -36,7 +69,29 @@ void UObjectHierarchySerializer::SetPackageForDeserialization(UPackage* SelfPack
 }
 
 void UObjectHierarchySerializer::SetObjectMark(UObject* Object, const FString& ObjectMark) {
-    this->ObjectMarks.Add(Object, ObjectMark);
+	UObject* const* OldMarkObjectValue = ObjectMarks.FindKey(ObjectMark);
+
+	//If we have an old value for this mark and it's the same object, exit early
+	if (OldMarkObjectValue != NULL && *OldMarkObjectValue == Object) {
+		return;
+	}
+	
+	this->ObjectMarks.Add(Object, ObjectMark);
+	
+	//If we have an old mapping, remove it immediately and try to remap old objects to new ones
+	if (OldMarkObjectValue != NULL) {
+		this->ObjectMarks.Remove(*OldMarkObjectValue);
+		
+		TArray<int32> IndicesToOverwrite;
+		for (const TPair<int32, UObject*>& Pair : this->LoadedObjects) {
+			if (Pair.Value == *OldMarkObjectValue) {
+				IndicesToOverwrite.Add(Pair.Key);
+			}
+		}
+		for (const int32 ObjectIndex : IndicesToOverwrite) {
+			this->LoadedObjects.Add(ObjectIndex, Object);
+		}
+	}
 }
 
 int32 UObjectHierarchySerializer::SerializeObject(UObject* Object) {
@@ -117,7 +172,7 @@ UObject* UObjectHierarchySerializer::DeserializeObject(int32 Index) {
             
         } else {
             //Perform normal deserialization
-            ConstructedObject = DeserializeExportedObject(ObjectJson);
+            ConstructedObject = DeserializeExportedObject(Index, ObjectJson);
         }
         
         LoadedObjects.Add(Index, ConstructedObject);
@@ -160,14 +215,21 @@ void UObjectHierarchySerializer::SerializeObjectPropertiesIntoObject(UObject* Ob
 	Properties->SetArrayField(TEXT("$ReferencedObjects"), ReferencedSubobjectsArray);
 }
 
-bool UObjectHierarchySerializer::CompareUObjects(const int32 ObjectIndex, UObject* Object, bool bCheckExportName, bool bCheckExportOuter) {
+bool UObjectHierarchySerializer::CompareObjectsWithContext(const int32 ObjectIndex, UObject* Object, TSharedPtr<FObjectCompareContext> CompareContext) {
 	//If either of the operands are null, they are only equal if both are NULL
 	if (ObjectIndex == INDEX_NONE || Object == NULL) {
 		return ObjectIndex == INDEX_NONE && Object == NULL;
 	}
 
+	//Return true if we have already compared this object, otherwise we will run into the recursion
+	//Actual comparison already yielded the result, so the overall graph comparison result will stay the same
+	if (CompareContext->HasObjectAlreadyBeenCompared(ObjectIndex, Object)) {
+		return true;
+	}
+
 	const TSharedPtr<FJsonObject>& ObjectJson = SerializedObjects.FindChecked(ObjectIndex);
 	const FString ObjectType = ObjectJson->GetStringField(TEXT("Type"));
+	const FObjectCompareSettings CompareSettings = CompareContext->GetObjectSettings(ObjectIndex);
 
 	//Object is imported from another package, and not located in our own
 	if (ObjectType == TEXT("Import")) {
@@ -180,7 +242,7 @@ bool UObjectHierarchySerializer::CompareUObjects(const int32 ObjectIndex, UObjec
 		//If we have outer, compare them too to make sure they match
 		if (ObjectJson->HasField(TEXT("Outer"))) {
 			const int32 OuterObjectIndex = ObjectJson->GetIntegerField(TEXT("Outer"));
-			return CompareUObjects(OuterObjectIndex, Object->GetOuter(), bCheckExportName, bCheckExportOuter);
+			return CompareObjectsWithContext(OuterObjectIndex, Object->GetOuter(), CompareContext);
 		}
 		//We end up here if we have no outer but have matching name, in which case we represent top-level object
 		return true;
@@ -192,21 +254,21 @@ bool UObjectHierarchySerializer::CompareUObjects(const int32 ObjectIndex, UObjec
 		const FString ObjectMark = ObjectJson->GetStringField(TEXT("ObjectMark"));
 		UObject* const* FoundObject = ObjectMarks.FindKey(ObjectMark);
 		checkf(FoundObject, TEXT("Cannot resolve object serialized using mark: %s"), *ObjectMark);
+		UObject* RegisteredObject = *FoundObject;
 
 		//Marked objects only match if they point to the same UObject
-		UObject* RegisteredObject = *FoundObject;
 		return RegisteredObject == Object;
 	}
 
 	//Make sure object name matches first
 	const FString ObjectName = ObjectJson->GetStringField(TEXT("ObjectName"));
-	if (bCheckExportName && Object->GetName() != ObjectName) {
+	if (CompareSettings.bCheckObjectName && Object->GetName() != ObjectName) {
 		return false;
 	}
 
 	//Make sure object class matches provided one
 	const int32 ObjectClassIndex = ObjectJson->GetIntegerField(TEXT("ObjectClass"));
-	if (!CompareUObjects(ObjectClassIndex, Object->GetClass(), bCheckExportName, bCheckExportOuter)) {
+	if (!CompareObjectsWithContext(ObjectClassIndex, Object->GetClass(), CompareContext)) {
 		return false;
 	}
         
@@ -218,21 +280,21 @@ bool UObjectHierarchySerializer::CompareUObjects(const int32 ObjectIndex, UObjec
 
 	//Otherwise make sure outer object matches
     const int32 OuterObjectIndex = ObjectJson->GetIntegerField(TEXT("Outer"));
-	if (bCheckExportOuter && !CompareUObjects(OuterObjectIndex, Object->GetOuter(), bCheckExportName, bCheckExportOuter)) {
+	if (CompareSettings.bCheckObjectOuter && !CompareObjectsWithContext(OuterObjectIndex, Object->GetOuter(), CompareContext)) {
 		return false;
 	}
 
     //Deserialize object properties now
     if (ObjectJson->HasField(TEXT("Properties"))) {
         const TSharedPtr<FJsonObject>& Properties = ObjectJson->GetObjectField(TEXT("Properties"));
-        return AreObjectPropertiesUpToDate(Properties.ToSharedRef(), Object);
+        return AreObjectPropertiesUpToDate(Properties.ToSharedRef(), Object, CompareContext);
     }
 
 	//No properties detected, we are matching just fine in that case
 	return true;
 }
 
-bool UObjectHierarchySerializer::AreObjectPropertiesUpToDate(const TSharedRef<FJsonObject>& Properties, UObject* Object) {
+bool UObjectHierarchySerializer::AreObjectPropertiesUpToDate(const TSharedRef<FJsonObject>& Properties, UObject* Object, const TSharedPtr<FObjectCompareContext> Context) {
 	UClass* ObjectClass = Object->GetClass();
 
 	//Iterate all properties and return false if our values do not match existing ones
@@ -244,7 +306,7 @@ bool UObjectHierarchySerializer::AreObjectPropertiesUpToDate(const TSharedRef<FJ
 			const void* PropertyValue = Property->ContainerPtrToValuePtr<void>(Object);
 			const TSharedPtr<FJsonValue> ValueObject = Properties->Values.FindChecked(PropertyName);
 
-			if (!PropertySerializer->ComparePropertyValues(Property, ValueObject.ToSharedRef(), PropertyValue)) {
+			if (!PropertySerializer->ComparePropertyValues(Property, ValueObject.ToSharedRef(), PropertyValue, Context)) {
 				return false;
 			}
 		}
@@ -266,8 +328,9 @@ void UObjectHierarchySerializer::FlushPropertiesIntoObject(const int32 ObjectInd
 	checkf(ObjectType == TEXT("Export"), TEXT("Can only call FlushPropertiesIntoObject for exported objects"));
 	
 	const int32 ObjectClassIndex = ObjectData->GetIntegerField(TEXT("ObjectClass"));
-	const UClass* ObjectClass = CastChecked<UClass>(DeserializeObject(ObjectClassIndex));
+	UObject* ObjectClassRaw = DeserializeObject(ObjectClassIndex);
 	
+	UClass* ObjectClass = CastChecked<UClass>(ObjectClassRaw);
 	checkf(Object->GetClass()->IsChildOf(ObjectClass), TEXT("Can only call FlushPropertiesIntoObject for objects matching serialized object class"));
 	
 	if (bVerifyNameAndRename) {
@@ -373,7 +436,7 @@ void UObjectHierarchySerializer::CollectObjectPackages(const int32 ObjectIndex, 
     }
 }
 
-UObject* UObjectHierarchySerializer::DeserializeExportedObject(TSharedPtr<FJsonObject> ObjectJson) {
+UObject* UObjectHierarchySerializer::DeserializeExportedObject(int32 ObjectIndex, TSharedPtr<FJsonObject> ObjectJson) {
     //Object is defined inside our own package, so we should have
     const int32 ObjectClassIndex = ObjectJson->GetIntegerField(TEXT("ObjectClass"));
     UClass* ObjectClass = Cast<UClass>(DeserializeObject(ObjectClassIndex));
@@ -410,6 +473,9 @@ UObject* UObjectHierarchySerializer::DeserializeExportedObject(TSharedPtr<FJsonO
 		UObject* Template = GetArchetypeFromRequiredInfo(ObjectClass, OuterObject, *ObjectName, ObjectLoadFlags);
 		ConstructedObject = StaticConstructObject_Internal(ObjectClass, OuterObject, *ObjectName, ObjectLoadFlags, EInternalObjectFlags::None, Template);	
 	}
+
+	//Record constructed object so when properties reference it through outer chain we do not run into stack overflow
+	LoadedObjects.Add(ObjectIndex, ConstructedObject);
 
     //Deserialize object properties now
     if (ObjectJson->HasField(TEXT("Properties"))) {

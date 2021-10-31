@@ -15,5 +15,11 @@ protected:
 	virtual bool IsSimpleAssetUpToDate(UObject* Asset) const override;
 	FStaticParameterSet GetStaticParameterOverrides() const;
 public:
+	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const override;
+protected:
+	virtual void PreFinishAssetGeneration() override;
+public:
 	virtual FName GetAssetClass() override;
+private:
+	FProperty* AssetUserDataProperty;
 };

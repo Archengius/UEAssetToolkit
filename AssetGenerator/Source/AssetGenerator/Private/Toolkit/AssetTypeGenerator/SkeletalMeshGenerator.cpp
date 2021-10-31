@@ -10,7 +10,7 @@
 #include "PhysicsEngine/BodySetup.h"
 
 void USkeletalMeshGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	USkeletalMesh* NewSkeletalMesh = ImportSkeletalMesh(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewSkeletalMesh);
 	
@@ -82,6 +82,17 @@ void USkeletalMeshGenerator::SetupFbxImportSettings(UFbxImportUI* ImportUI) cons
 
 	//TODO here only until we implemented physics asset generation
 	ImportUI->bCreatePhysicsAsset = true;
+}
+
+void USkeletalMeshGenerator::GetAdditionalPackagesToSave(TArray<UPackage*>& OutPackages) {
+	const USkeletalMesh* SkeletalMesh = GetAsset<USkeletalMesh>();
+
+	if (SkeletalMesh->Skeleton) {
+		OutPackages.Add(SkeletalMesh->Skeleton->GetOutermost());
+	}
+	if (SkeletalMesh->PhysicsAsset) {
+		OutPackages.Add(SkeletalMesh->PhysicsAsset->GetOutermost());
+	}
 }
 
 void USkeletalMeshGenerator::PopulateSkeletalMeshProperties(USkeletalMesh* Asset) {

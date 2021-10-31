@@ -2,7 +2,7 @@
 #include "CoreMinimal.h"
 #include "AssetTypeGenerator.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogAssetGenerator, All, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogAssetGenerator, Log, All);
 
 class UObjectHierarchySerializer;
 class UPropertySerializer;
@@ -13,6 +13,7 @@ enum class EAssetGenerationStage {
 	CONSTRUCTION,
 	DATA_POPULATION,
 	CDO_FINALIZATION,
+	PRE_FINSHED,
 	FINISHED
 };
 
@@ -20,6 +21,11 @@ enum class EAssetGenerationStage {
 struct ASSETGENERATOR_API FAssetDependency {
 	const FName PackageName;
 	const EAssetGenerationStage State;
+};
+
+struct ASSETGENERATOR_API FGeneratorStateAdvanceResult {
+	EAssetGenerationStage NewStage;
+	bool bPreviousStageNotImplemented;
 };
 
 UCLASS()
@@ -35,6 +41,7 @@ private:
 	bool bAssetChanged;
 	bool bHasAssetEverBeenChanged;
 	bool bIsGeneratingPublicProject;
+	bool bIsStageNotOverriden;
 	
 	UPROPERTY()
     UObjectHierarchySerializer* ObjectSerializer;
@@ -47,6 +54,9 @@ private:
 
 	/** Initializes this asset generator instance with the file data */
 	void InitializeInternal(const FString& PackageBaseDirectory, FName PackageName, TSharedPtr<FJsonObject> RootFileObject);
+
+	/** Dispatches asset construction and tries to locate existing packages */
+	void ConstructAssetAndPackage();
 protected:
 	FORCEINLINE TSharedPtr<FJsonObject> GetAssetData() const { return AssetData; }
 	
@@ -65,7 +75,7 @@ protected:
 	/** Marks asset as changed by this generator */
 	FORCEINLINE void MarkAssetChanged() { this->bAssetChanged = true; }
 
-	void SetPackageAndAsset(UPackage* NewPackage, UObject* NewAsset);
+	void SetPackageAndAsset(UPackage* NewPackage, UObject* NewAsset, bool bSetObjectMark = true);
 
 	FString GetAdditionalDumpFilePath(const FString& Postfix, const FString& Extension) const;
 
@@ -77,11 +87,17 @@ protected:
 
 	/** Allocates new package object and asset object inside of it */
 	virtual void CreateAssetPackage() PURE_VIRTUAL(ConstructAsset, );
-	virtual void PopulateAssetWithData() {};
-	virtual void FinalizeAssetCDO() {}
+	virtual void PopulateAssetWithData();
+	virtual void FinalizeAssetCDO();
+	virtual void PreFinishAssetGeneration();
 
 	/** Called when existing package is loaded from the disk to be used with asset generator. In that case, no CreateAssetPackage call will happen */
 	virtual void OnExistingPackageLoaded() {};
+
+	/** Append additional packages that need to be saved when this package is changed here */
+	virtual void GetAdditionalPackagesToSave(TArray<UPackage*>& OutPackages) {};
+
+	static void MoveToTransientPackageAndRename(UObject* Object);
 public:
 	UAssetTypeGenerator();
 
@@ -111,7 +127,7 @@ public:
 	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {}
 
 	/** Attempts to advance asset generation stage. Returns new stage, or finished if generation is finished */
-	EAssetGenerationStage AdvanceGenerationState();
+	FGeneratorStateAdvanceResult AdvanceGenerationState();
 
 	/** Additional asset classes handled by this generator, can be empty, these have lower priority than GetAssetClass */
 	virtual void GetAdditionallyHandledAssetClasses(TArray<FName>& OutExtraAssetClasses) {}

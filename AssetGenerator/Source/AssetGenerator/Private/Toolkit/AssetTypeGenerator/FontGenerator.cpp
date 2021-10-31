@@ -8,8 +8,8 @@ void UFontGenerator::ReadGlyphDataFromFile(FFontGlyphData& GlyphData) const {
 	
 	if (AssetData->HasField(TEXT("IsOfflineFont")) && AssetData->GetBoolField(TEXT("IsOfflineFont"))) {
 		const FString GlyphDataFilename = GetAdditionalDumpFilePath(TEXT("GlyphData"), TEXT("bin"));
-		const TUniquePtr<FArchive> Reader = TUniquePtr<FArchive>(IFileManager::Get().CreateFileWriter(*GlyphDataFilename));
-
+		
+		const TUniquePtr<FArchive> Reader = TUniquePtr<FArchive>(IFileManager::Get().CreateFileReader(*GlyphDataFilename));
 		*Reader << GlyphData.Characters;
 		*Reader << GlyphData.bIsRemapped;
 		*Reader << GlyphData.CharRemap;
@@ -18,7 +18,7 @@ void UFontGenerator::ReadGlyphDataFromFile(FFontGlyphData& GlyphData) const {
 }
 
 void UFontGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UFont* NewFont = NewObject<UFont>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewFont);
 
@@ -105,6 +105,9 @@ void UFontGenerator::PopulateFontAssetWithData(UFont* Font, const FFontGlyphData
 			Font->Textures.Add(Texture);
 		}
 	}
+
+	//Call PostLoad on the asset so it will update textures for offline font and set the correct compression settings
+	Font->PostLoad();
 }
 
 bool FontCharacterEqual(const FFontCharacter& A, const FFontCharacter& B) {

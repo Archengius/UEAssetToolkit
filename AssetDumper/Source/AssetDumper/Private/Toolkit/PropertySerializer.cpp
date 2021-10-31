@@ -445,7 +445,7 @@ void UPropertySerializer::DeserializeStruct(UScriptStruct* Struct, const TShared
 }
 
 
-bool UPropertySerializer::ComparePropertyValues(FProperty* Property, const TSharedRef<FJsonValue>& JsonValue, const void* CurrentValue) {
+bool UPropertySerializer::ComparePropertyValues(FProperty* Property, const TSharedRef<FJsonValue>& JsonValue, const void* CurrentValue, const TSharedPtr<FObjectCompareContext> Context) {
 
 	if (Property->ArrayDim != 1) {
 		const TArray<TSharedPtr<FJsonValue>>& ArrayElements = JsonValue->AsArray();
@@ -455,16 +455,16 @@ bool UPropertySerializer::ComparePropertyValues(FProperty* Property, const TShar
 			const uint8* ArrayPropertyValue = (const uint8*) CurrentValue + Property->ElementSize * ArrayIndex;
 			const TSharedRef<FJsonValue> ArrayJsonValue = ArrayElements[ArrayIndex].ToSharedRef();
 			
-			if (!ComparePropertyValuesInner(Property, ArrayJsonValue, ArrayPropertyValue)) {
+			if (!ComparePropertyValuesInner(Property, ArrayJsonValue, ArrayPropertyValue, Context)) {
 				return false;
 			}
 		}
 		return true;
 	}
-	return ComparePropertyValuesInner(Property, JsonValue, CurrentValue);
+	return ComparePropertyValuesInner(Property, JsonValue, CurrentValue, Context);
 }
 
-bool UPropertySerializer::ComparePropertyValuesInner(FProperty* Property, const TSharedRef<FJsonValue>& JsonValue, const void* CurrentValue) {
+bool UPropertySerializer::ComparePropertyValuesInner(FProperty* Property, const TSharedRef<FJsonValue>& JsonValue, const void* CurrentValue, const TSharedPtr<FObjectCompareContext> Context) {
 	const FMapProperty* MapProperty = CastField<const FMapProperty>(Property);
 	const FSetProperty* SetProperty = CastField<const FSetProperty>(Property);
 	const FArrayProperty* ArrayProperty = CastField<const FArrayProperty>(Property);
@@ -493,8 +493,8 @@ bool UPropertySerializer::ComparePropertyValuesInner(FProperty* Property, const 
 				const void* CurrentPairValuePtr = MapHelper.GetValuePtr(j);
 
 				//If both checks succeeded, we found a matching pair, check the next pair in the main array
-				if (ComparePropertyValues(KeyProperty, EntryKey.ToSharedRef(), CurrentPairKeyPtr) &&
-					ComparePropertyValues(ValueProperty, EntryValue.ToSharedRef(), CurrentPairValuePtr)) {
+				if (ComparePropertyValues(KeyProperty, EntryKey.ToSharedRef(), CurrentPairKeyPtr, Context) &&
+					ComparePropertyValues(ValueProperty, EntryValue.ToSharedRef(), CurrentPairValuePtr, Context)) {
 
 					bFoundMatchingPair = true;
 					break;
@@ -528,7 +528,7 @@ bool UPropertySerializer::ComparePropertyValuesInner(FProperty* Property, const 
 			bool bFoundMatchingPair = false;
 			for (int32 j = 0; j < SetHelper.Num(); j++) {
 				const void* CurrentElementValue = SetHelper.GetElementPtr(j);
-				if (ComparePropertyValues(ElementProperty, Element.ToSharedRef(), CurrentElementValue)) {
+				if (ComparePropertyValues(ElementProperty, Element.ToSharedRef(), CurrentElementValue, Context)) {
 					bFoundMatchingPair = true;
 					break;
 				}
@@ -556,7 +556,7 @@ bool UPropertySerializer::ComparePropertyValuesInner(FProperty* Property, const 
 			const TSharedPtr<FJsonValue>& Element = JsonArray[i];
 			const void* CurrentElementValue = ArrayHelper.GetRawPtr(i);
 
-			if (!ComparePropertyValues(ElementProperty, Element.ToSharedRef(), CurrentElementValue)) {
+			if (!ComparePropertyValues(ElementProperty, Element.ToSharedRef(), CurrentElementValue, Context)) {
 				return false;
 			}
 		}
@@ -609,7 +609,7 @@ bool UPropertySerializer::ComparePropertyValuesInner(FProperty* Property, const 
 		UObject* InterfaceObject = Interface->GetObject();
 		const int32 InterfaceObjectIndex = JsonValue->AsNumber();
 		
-		return ObjectHierarchySerializer->CompareUObjects(InterfaceObjectIndex, InterfaceObject, true, true);
+		return ObjectHierarchySerializer->CompareObjectsWithContext(InterfaceObjectIndex, InterfaceObject, Context);
 	}
 
 	if (const FObjectPropertyBase* ObjectProperty = CastField<const FObjectPropertyBase>(Property)) {
@@ -617,22 +617,23 @@ bool UPropertySerializer::ComparePropertyValuesInner(FProperty* Property, const 
 		UObject* PropertyObject = ObjectProperty->GetObjectPropertyValue(CurrentValue);
 		const int32 ObjectIndex = JsonValue->AsNumber();
 		
-		return ObjectHierarchySerializer->CompareUObjects(ObjectIndex, PropertyObject, true, true);
+		return ObjectHierarchySerializer->CompareObjectsWithContext(ObjectIndex, PropertyObject, Context);
 	}
 
 	//To serialize struct, we need it's type and value pointer, because struct value doesn't contain type information
 	if (const FStructProperty* StructProperty = CastField<const FStructProperty>(Property)) {
-		return CompareStructs(StructProperty->Struct, JsonValue->AsObject().ToSharedRef(), CurrentValue);
+		return CompareStructs(StructProperty->Struct, JsonValue->AsObject().ToSharedRef(), CurrentValue, Context);
 	}
 
 	//If property hasn't been handled above, we can just deserialize it normally and then do FProperty.Identical
 	FDefaultConstructedPropertyElement DeserializedElement(Property);
-	DeserializePropertyValue(Property, JsonValue, DeserializedElement.GetObjAddress());
+	//We use DeserializePropertyValueInner here because we handle statically sized array properties externally, so we need to bypass their handling
+	DeserializePropertyValueInner(Property, JsonValue, DeserializedElement.GetObjAddress());
 	
 	return Property->Identical(CurrentValue, DeserializedElement.GetObjAddress(), PPF_None);
 }
 
-bool UPropertySerializer::CompareStructs(UScriptStruct* Struct, const TSharedRef<FJsonObject>& JsonValue, const void* CurrentValue) {
+bool UPropertySerializer::CompareStructs(UScriptStruct* Struct, const TSharedRef<FJsonObject>& JsonValue, const void* CurrentValue, const TSharedPtr<FObjectCompareContext> Context) {
 	for (FProperty* Property = Struct->PropertyLink; Property; Property = Property->PropertyLinkNext) {
 		const FString PropertyName = Property->GetName();
 		
@@ -640,7 +641,7 @@ bool UPropertySerializer::CompareStructs(UScriptStruct* Struct, const TSharedRef
 			const void* PropertyValue = Property->ContainerPtrToValuePtr<void>(CurrentValue);
 			const TSharedPtr<FJsonValue>& ValueObject = JsonValue->Values.FindChecked(PropertyName);
 
-			if (!ComparePropertyValues(Property, ValueObject.ToSharedRef(), PropertyValue)) {
+			if (!ComparePropertyValues(Property, ValueObject.ToSharedRef(), PropertyValue, Context)) {
 				return false;
 			}
 		}

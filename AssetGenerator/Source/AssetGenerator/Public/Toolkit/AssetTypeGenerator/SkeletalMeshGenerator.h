@@ -19,6 +19,7 @@ protected:
 	bool IsSkeletalMeshSourceFileUpToDate(USkeletalMesh* Asset) const;
 
 	void SetupFbxImportSettings(class UFbxImportUI* ImportUI) const;
+	virtual void GetAdditionalPackagesToSave(TArray<UPackage*>& OutPackages) override;
 public:
 	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const override;
 	virtual FName GetAssetClass() override;

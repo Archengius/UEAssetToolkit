@@ -7,26 +7,42 @@
 TSharedPtr<FAssetGenerationProcessor> FAssetGenerationProcessor::ActiveAssetGenerator = NULL;
 
 void FAssetGenerationProcessor::RefreshGeneratorDependencies(UAssetTypeGenerator* Generator) {
+	//Populate package dependencies
 	const FName PackageName = Generator->GetPackageName();
 	TArray<FAssetDependency> GeneratorDependencies;
 	Generator->PopulateStageDependencies(GeneratorDependencies);
+	
+	//Generate a flat list of the asset dependencies, preferring later stage dependency when multiple are present
+	TMap<FName, EAssetGenerationStage> CompactedFlatDependencies;
+	
+	for (const FAssetDependency& Dependency : GeneratorDependencies) {
+		const EAssetGenerationStage* ExistingStage = CompactedFlatDependencies.Find(Dependency.PackageName);
+		
+		if (ExistingStage != NULL) {
+			int64 MaximumDependedStage = FMath::Max((int64) (*ExistingStage), (int64) Dependency.State);
+			CompactedFlatDependencies.Add(Dependency.PackageName, (EAssetGenerationStage) MaximumDependedStage);
+		} else {
+			CompactedFlatDependencies.Add(Dependency.PackageName, Dependency.State);
+		}
+	}
 
+	//Create shared dependency list and collect all dependencies
 	TSharedRef<FDependencyList> DependencyList = MakeShareable(new FDependencyList());
 	DependencyList->AssetTypeGenerator = Generator;
 	
-	for (const FAssetDependency& AssetDependency : GeneratorDependencies) {
-		const FName DependencyPackageName = AssetDependency.PackageName;
+	for (const TPair<FName, EAssetGenerationStage>& AssetDependency : CompactedFlatDependencies) {
+		const FName DependencyPackageName = AssetDependency.Key;
 
 		//Try to find asset generator in progress for the provided dependency package name first
 		UAssetTypeGenerator** DependencyGenerator = AssetGenerators.Find(DependencyPackageName);
 		if (DependencyGenerator != NULL) {
-			const int32 DependencyStageIndex = (int32) AssetDependency.State;
+			const int32 DependencyStageIndex = (int32) AssetDependency.Value;
 			const int32 CurrentStageIndex = (int32) (*DependencyGenerator)->GetCurrentStage();
 			
 			//We only want to add dependency if required stage index is higher or equal to current stage index,
 			//e.g when we are waiting for the dependency stage advance to happen
 			if (DependencyStageIndex >= CurrentStageIndex) {
-				DependencyList->PackageDependencies.Add(AssetDependency.PackageName, AssetDependency.State);
+				DependencyList->PackageDependencies.Add(AssetDependency.Key, AssetDependency.Value);
 				PendingDependencies.FindOrAdd(DependencyPackageName).Add(DependencyList);
 
 				//Log verbose information about the dependency for easier debugging
@@ -42,12 +58,12 @@ void FAssetGenerationProcessor::RefreshGeneratorDependencies(UAssetTypeGenerator
 
 		//Only add dependency if package is going to be generated. We never wait for external packages.
 		if (AddPackageResult == EAddPackageResult::PACKAGE_WILL_BE_GENERATED) {
-			DependencyList->PackageDependencies.Add(AssetDependency.PackageName, AssetDependency.State);
+			DependencyList->PackageDependencies.Add(AssetDependency.Key, AssetDependency.Value);
 			PendingDependencies.FindOrAdd(DependencyPackageName).Add(DependencyList);
 
 			//Log verbose information about the dependency for easier debugging
 			UE_LOG(LogAssetGenerator, VeryVerbose, TEXT("Package %s depends on generated package %s (required Stage: %d)"),
-				*PackageName.ToString(), *DependencyPackageName.ToString(), AssetDependency.State);
+				*PackageName.ToString(), *DependencyPackageName.ToString(), AssetDependency.Value);
 			
 		} else if (AddPackageResult == EAddPackageResult::PACKAGE_NOT_FOUND) {
 			//Print warning when our dependency packages are missing
@@ -217,7 +233,9 @@ EAddPackageResult FAssetGenerationProcessor::AddPackage(const FName PackageName)
 }
 
 bool FAssetGenerationProcessor::GatherNewAssetsForGeneration() {
-	while (PackagesToGenerate.IsValidIndex(NextPackageToGenerateIndex)) {
+	const int32 MaxAssetsToGatherThisTick = Configuration.MaxAssetsToAdvancePerTick * 2;
+	int32 AssetsAddedThisTick = 0;
+	while (PackagesToGenerate.IsValidIndex(NextPackageToGenerateIndex) && AssetsAddedThisTick < MaxAssetsToGatherThisTick) {
 		const FName PackageToGenerate = PackagesToGenerate[NextPackageToGenerateIndex++];
 
 		//Skip package if it has been generated already before
@@ -240,9 +258,9 @@ bool FAssetGenerationProcessor::GatherNewAssetsForGeneration() {
 				*PackageToGenerate.ToString(), *AssetFilePath);
 			continue;
 		}
-		return true;
+		AssetsAddedThisTick++;
 	}
-	return false;
+	return AssetsAddedThisTick > 0;
 }
 
 void FAssetGenerationProcessor::TickAssetGeneration() {
@@ -262,17 +280,24 @@ void FAssetGenerationProcessor::TickAssetGeneration() {
 		}
 	}
 
-	const int32 MaxGeneratorsToAdvance = FMath::Min(GeneratorsReadyToAdvance.Num(), Configuration.MaxAssetsToAdvancePerTick);
+	int32 MaxGeneratorsToAdvance = Configuration.MaxAssetsToAdvancePerTick;
+	int32 GeneratorsActuallyProcessed = 0;
 	
-	for (int32 i = 0; i < MaxGeneratorsToAdvance; i++) {
+	for (int32 i = 0; i < FMath::Min(GeneratorsReadyToAdvance.Num(), MaxGeneratorsToAdvance); i++) {
 		UAssetTypeGenerator* Generator = GeneratorsReadyToAdvance[i];
 		UE_LOG(LogAssetGenerator, VeryVerbose, TEXT("Advancing asset generator %s at index %d"), *Generator->GetPackageName().ToString(), i);
-		Generator->AdvanceGenerationState();
-		OnGeneratorStageAdvanced(Generator);
-	}
 
+		const FGeneratorStateAdvanceResult& AdvanceResult = Generator->AdvanceGenerationState();
+		OnGeneratorStageAdvanced(Generator);
+
+		//Try to compensate for generation stage not being utilized by advancing more generators this tick
+		if (AdvanceResult.bPreviousStageNotImplemented) {
+			MaxGeneratorsToAdvance++;
+		}
+		GeneratorsActuallyProcessed++;
+	}
 	//Remove generators that we have already advanced
-	GeneratorsReadyToAdvance.RemoveAt(0, MaxGeneratorsToAdvance);
+	GeneratorsReadyToAdvance.RemoveAt(0, GeneratorsActuallyProcessed);
 
 	//Update notification item if it's visible
 	UpdateNotificationItem();
@@ -287,6 +312,8 @@ void FAssetGenerationProcessor::OnAssetGenerationStarted() {
 		FNotificationInfo NotificationInfo = FNotificationInfo(LOCTEXT("AssetGenerator_Startup", "Asset Generation Starting Up..."));
 		NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic([](){ FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("OutputLog"))); });
 		NotificationInfo.HyperlinkText = LOCTEXT("ShowMessageLogHyperlink", "Show Output Log");
+		NotificationInfo.bFireAndForget = false;
+		
 		this->NotificationItem = FSlateNotificationManager::Get().AddNotification(NotificationInfo);
 	}
 }

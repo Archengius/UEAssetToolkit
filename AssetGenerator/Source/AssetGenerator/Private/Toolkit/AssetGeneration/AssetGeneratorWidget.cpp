@@ -1,9 +1,14 @@
 #include "Toolkit/AssetGeneration/AssetGeneratorWidget.h"
 #include "DesktopPlatformModule.h"
 #include "IDesktopPlatform.h"
+#include "AssetGeneration/AssetGeneratorLocalSettings.h"
 #include "Toolkit/AssetGeneration/AssetDumpViewWidget.h"
 
 #define LOCTEXT_NAMESPACE "AssetGenerator"
+
+SAssetGeneratorWidget::SAssetGeneratorWidget() {
+	LocalSettings = UAssetGeneratorLocalSettings::Get();
+}
 
 void SAssetGeneratorWidget::Construct(const FArguments& InArgs) {
 	ChildSlot[
@@ -41,31 +46,41 @@ void SAssetGeneratorWidget::Construct(const FArguments& InArgs) {
 }
 
 FReply SAssetGeneratorWidget::OnGenerateAssetsButtonPressed() {
-	if (WhitelistedAssetClasses.Num() == 0) {
+	if (LocalSettings->WhitelistedAssetCategories.Num() == 0) {
 		return FReply::Handled();
 	}
 
+	TSet<FName> WhitelistedAssetCategories = LocalSettings->WhitelistedAssetCategories;
+	ExpandWhitelistedAssetCategories(WhitelistedAssetCategories);
+	
 	TArray<FName> SelectedAssetPackages;
-	AssetDumpViewWidget->PopulateSelectedPackages(SelectedAssetPackages, &WhitelistedAssetClasses);
+	AssetDumpViewWidget->PopulateSelectedPackages(SelectedAssetPackages, &WhitelistedAssetCategories);
 
 	if (SelectedAssetPackages.Num() == 0) {
 		return FReply::Handled();
 	}
 
-	AssetGeneratorSettings.DumpRootDirectory = GetAssetDumpFolderPath();
-	FAssetGenerationProcessor::CreateAssetGenerator(AssetGeneratorSettings, SelectedAssetPackages);
+	FAssetGeneratorConfiguration AssetGeneratorConfiguration;
+	AssetGeneratorConfiguration.DumpRootDirectory = GetAssetDumpFolderPath();
+	AssetGeneratorConfiguration.bRefreshExistingAssets = LocalSettings->bRefreshExistingAssets;
+	AssetGeneratorConfiguration.MaxAssetsToAdvancePerTick = LocalSettings->MaxAssetsToAdvancePerTick;
+	
+	FAssetGenerationProcessor::CreateAssetGenerator(AssetGeneratorConfiguration, SelectedAssetPackages);
 	return FReply::Handled();
 }
 
-TSharedRef<SWidget> SAssetGeneratorWidget::CreateAssetTypeFilterCategory() {
+TSharedRef<SWidget> SAssetGeneratorWidget::CreateAssetTypeFilterCategory()
+{
 	TSharedRef<SHorizontalBox> AssetTypesHolder = SNew(SHorizontalBox);
 	TSharedPtr<SVerticalBox> CurrentVerticalBox;
 	int32 AssetTypesStored = 0;
 	const int32 MaxAssetTypesPerRow = 8;
+	
+	TSet<FName> AllAssetClasses;
 
 	for (TSubclassOf<UAssetTypeGenerator> AssetGeneratorClass : UAssetTypeGenerator::GetAllGenerators()) {
 		const FName AssetClass = AssetGeneratorClass.GetDefaultObject()->GetAssetClass();
-		this->WhitelistedAssetClasses.Add(AssetClass);
+		AllAssetClasses.Add(AssetClass);
 
 		if (!CurrentVerticalBox.IsValid() || AssetTypesStored >= MaxAssetTypesPerRow) {
 			CurrentVerticalBox = SNew(SVerticalBox);
@@ -92,19 +107,52 @@ TSharedRef<SWidget> SAssetGeneratorWidget::CreateAssetTypeFilterCategory() {
 			+SHorizontalBox::Slot().VAlign(VAlign_Center).AutoWidth()[
 				SNew(SCheckBox)
 				.IsChecked_Lambda([this, AssetClass]() {
-					return this->WhitelistedAssetClasses.Contains(AssetClass) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					return LocalSettings->WhitelistedAssetCategories.Contains(AssetClass) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 				})
 				.OnCheckStateChanged_Lambda([this, AssetClass](const ECheckBoxState NewState) {
 					if (NewState == ECheckBoxState::Checked) {
-						this->WhitelistedAssetClasses.Add(AssetClass);
+						LocalSettings->WhitelistedAssetCategories.Add(AssetClass);
+						LocalSettings->SaveConfig();
+						
 					} else if (NewState == ECheckBoxState::Unchecked) {
-						this->WhitelistedAssetClasses.Remove(AssetClass);
+						LocalSettings->WhitelistedAssetCategories.Remove(AssetClass);
+						LocalSettings->SaveConfig();
 					}
 				})
 			]
 		];
 	}
-	return AssetTypesHolder;
+
+	return SNew(SVerticalBox)
+	+SVerticalBox::Slot().HAlign(HAlign_Left).VAlign(VAlign_Top).AutoHeight()[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot().HAlign(HAlign_Left).VAlign(VAlign_Center).AutoWidth().Padding(10.0f, 5.0f, 5.0f, 10.0f)[
+			SNew(SButton)
+			.Text(LOCTEXT("AssetTypeFilter_UnselectAll", "Clear All"))
+			.OnClicked_Lambda([this](){
+				LocalSettings->WhitelistedAssetCategories.Empty();
+				LocalSettings->SaveConfig();
+				
+				return FReply::Handled();
+			})
+		]
+		+SHorizontalBox::Slot().HAlign(HAlign_Left).VAlign(VAlign_Center).AutoWidth().Padding(0.0f, 5.0f, 0.0f, 10.0f)[
+			SNew(SButton)
+			.Text(LOCTEXT("AssetTypeFilter_SelectAll", "Select All"))
+			.OnClicked_Lambda([this, AllAssetClasses](){
+				LocalSettings->WhitelistedAssetCategories.Append(AllAssetClasses);
+				LocalSettings->SaveConfig();
+				
+				return FReply::Handled();
+			})
+		]
+		+SHorizontalBox::Slot().VAlign(VAlign_Fill).FillWidth(1.0f)[
+			SNew(SSpacer)
+		]
+	]
+	+SVerticalBox::Slot().HAlign(HAlign_Center).VAlign(VAlign_Fill).FillHeight(1.0f).Padding(10.0f)[
+		AssetTypesHolder
+	];
 }
 
 TSharedRef<SWidget> SAssetGeneratorWidget::CreateSettingsCategory() {
@@ -134,7 +182,7 @@ TSharedRef<SWidget> SAssetGeneratorWidget::CreateSettingsCategory() {
 				.Text_Lambda([this]() {
 					const FText SourceText = LOCTEXT("AssetGenerator_AssetsPerTick", "Assets To Generate Per Tick ({Assets}): ");
 					FFormatNamedArguments Arguments;
-					Arguments.Add(TEXT("Assets"), AssetGeneratorSettings.MaxAssetsToAdvancePerTick);
+					Arguments.Add(TEXT("Assets"), LocalSettings->MaxAssetsToAdvancePerTick);
 					
 					return FText::Format(SourceText, Arguments);
 				})
@@ -145,9 +193,10 @@ TSharedRef<SWidget> SAssetGeneratorWidget::CreateSettingsCategory() {
 				.MinValue(1.0f)
 				.MaxValue(32.0f)
 				.StepSize(1.0f)
-				.Value(AssetGeneratorSettings.MaxAssetsToAdvancePerTick)
+				.Value(LocalSettings->MaxAssetsToAdvancePerTick)
 				.OnValueChanged_Lambda([this](float NewValue) {
-					AssetGeneratorSettings.MaxAssetsToAdvancePerTick = (int32) NewValue;
+					LocalSettings->MaxAssetsToAdvancePerTick = (int32) NewValue;
+					LocalSettings->SaveConfig();
 				})
 			]
 		]
@@ -160,13 +209,27 @@ TSharedRef<SWidget> SAssetGeneratorWidget::CreateSettingsCategory() {
            +SHorizontalBox::Slot().AutoWidth().HAlign(HAlign_Center).VAlign(VAlign_Center)[
 				SNew(SCheckBox)
 				.IsChecked_Lambda([this]() {
-					return AssetGeneratorSettings.bRefreshExistingAssets ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+					return LocalSettings->bRefreshExistingAssets ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 				})
 				.OnCheckStateChanged_Lambda([this](const ECheckBoxState NewState) {
-					AssetGeneratorSettings.bRefreshExistingAssets = NewState == ECheckBoxState::Checked;
+					LocalSettings->bRefreshExistingAssets = NewState == ECheckBoxState::Checked;
+					LocalSettings->SaveConfig();
 				})
            ]
 		];
+}
+
+void SAssetGeneratorWidget::ExpandWhitelistedAssetCategories(TSet<FName>& WhitelistedAssetCategories) {
+	for (TSubclassOf<UAssetTypeGenerator> AssetGeneratorClass : UAssetTypeGenerator::GetAllGenerators()) {
+		UAssetTypeGenerator* AssetGenerator = AssetGeneratorClass.GetDefaultObject();
+		const FName AssetClass = AssetGenerator->GetAssetClass();
+
+		if (WhitelistedAssetCategories.Contains(AssetClass)) {
+			TArray<FName> OutAdditionalClasses;
+			AssetGenerator->GetAdditionallyHandledAssetClasses(OutAdditionalClasses);
+			WhitelistedAssetCategories.Append(OutAdditionalClasses);
+		}
+	}
 }
 
 FString SAssetGeneratorWidget::GetAssetDumpFolderPath() const {
@@ -187,18 +250,29 @@ FString SAssetGeneratorWidget::GetAssetDumpFolderPath() const {
 }
 
 void SAssetGeneratorWidget::UpdateDumpViewRootDirectory() {
- 	this->AssetDumpViewWidget->SetAssetDumpRootDirectory(GetAssetDumpFolderPath());
+	const FString AssetDumpFolderPath = GetAssetDumpFolderPath();
+	
+ 	this->AssetDumpViewWidget->SetAssetDumpRootDirectory(AssetDumpFolderPath);
+	this->LocalSettings->CurrentAssetDumpPath = AssetDumpFolderPath;
+	this->LocalSettings->SaveConfig();
 }
 
 void SAssetGeneratorWidget::SetAssetDumpFolderPath(const FString& InDumpFolderPath) {
 	FString NewDumpFolderPath = InDumpFolderPath;
 	FPaths::NormalizeDirectoryName(NewDumpFolderPath);
 	this->InputDumpPathText->SetText(FText::FromString(NewDumpFolderPath));
+	
 	UpdateDumpViewRootDirectory();
 }
 
-FString SAssetGeneratorWidget::GetDefaultAssetDumpPath() {
-	return FPaths::ProjectDir() + TEXT("AssetDump/");
+FString SAssetGeneratorWidget::GetDefaultAssetDumpPath() const {
+	FString ExistingDumpFolderPath = LocalSettings->CurrentAssetDumpPath;
+	
+	if (ExistingDumpFolderPath.IsEmpty()) {
+		return FPaths::ProjectDir() + TEXT("/AssetDump");
+	}
+	FPaths::NormalizeDirectoryName(ExistingDumpFolderPath);
+	return ExistingDumpFolderPath;
 }
 
 FReply SAssetGeneratorWidget::OnBrowseOutputPathPressed() {

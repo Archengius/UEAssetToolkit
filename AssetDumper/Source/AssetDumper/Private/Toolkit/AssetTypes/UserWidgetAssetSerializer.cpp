@@ -5,10 +5,16 @@
 #include "Toolkit/AssetDumping/SerializationContext.h"
 #include "Toolkit/AssetTypes/BlueprintAssetSerializer.h"
 #include "Components/NamedSlot.h"
+#include "Channels/MovieSceneEvent.h"
+#include "Sections/MovieSceneEventSection.h"
+#include "Sections/MovieSceneEventTriggerSection.h"
 
 void UUserWidgetAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext> Context) const {
     BEGIN_ASSET_SERIALIZATION_BP(UWidgetBlueprintGeneratedClass)
-    //DISABLE_SERIALIZATION_RAW(UWidgetBlueprintGeneratedClass, "TemplateAsset");
+    
+    DISABLE_SERIALIZATION(FMovieSceneEvent, Ptrs);
+    DISABLE_SERIALIZATION_RAW(UUserWidget, "bHasScriptImplementedTick");
+    DISABLE_SERIALIZATION_RAW(UUserWidget, "bHasScriptImplementedPaint");
     
     UBlueprintAssetSerializer::SerializeBlueprintClass(Asset, Data, Context);
 
@@ -31,8 +37,42 @@ void UUserWidgetAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext
 
     //Also append animations, they always have backing variables too
     for (const UWidgetAnimation* Animation : Asset->Animations) {
-        GeneratedVariableNames.Add(Animation->GetFName());
+        
+        //BPGC animation names are actually different from the original ones, they have _INST postfix appended
+        //We need to strip it to get the original blueprint variable name
+        FString OriginalAnimationName = Animation->GetName();
+        
+        if (OriginalAnimationName.EndsWith(TEXT("_INST"))) {
+            OriginalAnimationName = OriginalAnimationName.Mid(0, OriginalAnimationName.Len() - 5);
+        }
+        GeneratedVariableNames.Add(*OriginalAnimationName);
     }
+
+    //Serialize mapping of movie scene events to their bound functions
+    //Since we cannot serialize raw compiled function pointers, we need to just record function names
+    TSharedPtr<FJsonObject> MovieSceneEventTriggerSectionFunctions = MakeShareable(new FJsonObject);
+    
+    for (const UWidgetAnimation* Animation : Asset->Animations) {
+        ForEachObjectWithOuter(Animation, [&](UObject* Object){
+            if (UMovieSceneEventTriggerSection* EventSection = Cast<UMovieSceneEventTriggerSection>(Object)) {
+                FMovieSceneEventChannel& EventChannel = EventSection->EventChannel;
+                TArray<TSharedPtr<FJsonValue>> EventChannelValues;
+
+                for (int32 i = 0; i < EventChannel.GetNumKeys(); i++) {
+                    const FMovieSceneEvent& MovieSceneEvent = EventChannel.GetData().GetValues()[i];
+
+                    const TSharedPtr<FJsonObject> Value = MakeShareable(new FJsonObject);
+                    Value->SetNumberField(TEXT("KeyIndex"), i);
+                    Value->SetStringField(TEXT("FunctionName"), MovieSceneEvent.Ptrs.Function->GetName());
+                    Value->SetStringField(TEXT("BoundObjectProperty"), MovieSceneEvent.Ptrs.BoundObjectProperty.ToString());
+
+                    EventChannelValues.Add(MakeShareable(new FJsonValueObject(Value)));
+                }
+                MovieSceneEventTriggerSectionFunctions->SetArrayField(EventSection->GetName(), EventChannelValues);
+            }
+        });
+    }
+    Data->SetObjectField(TEXT("MovieSceneEventTriggerSectionFunctions"), MovieSceneEventTriggerSectionFunctions);
     
     TArray<TSharedPtr<FJsonValue>> GeneratedVariablesArray;
     for (const FName& VariableName : GeneratedVariableNames) {

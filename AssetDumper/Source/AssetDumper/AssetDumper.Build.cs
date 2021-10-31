@@ -27,7 +27,9 @@ public class AssetDumper : ModuleRules
             "Json",
             "MovieScene",
             "Projects",
-			"RenderCore"
+			"RenderCore",
+			"MovieScene",
+			"MovieSceneTracks"
         });
 
         PrivateDependencyModuleNames.AddRange(new[] {

@@ -5,6 +5,28 @@
 
 class UPropertySerializer;
 
+/** Compare settings for one specific object */
+struct ASSETDUMPER_API FObjectCompareSettings {
+	/** Whenever to perform a name check on the objects */
+	bool bCheckObjectName;
+	/** Whenever to perform an outer check on the objects */
+	bool bCheckObjectOuter;
+
+	FObjectCompareSettings();
+	FObjectCompareSettings(bool bCheckObjectName, bool bCheckObjectOuter);
+};
+
+class ASSETDUMPER_API FObjectCompareContext {
+	TArray<TPair<int32, UObject*>> ObjectsAlreadyCompared;
+	TMap<int32, FObjectCompareSettings> CompareSettings;
+public:
+	FObjectCompareContext();
+
+	void SetObjectSettings(int32 ObjectIndex, const FObjectCompareSettings& Settings);
+	bool HasObjectAlreadyBeenCompared(int32 ObjectIndex, UObject* Object);
+	FObjectCompareSettings GetObjectSettings(int32 ObjectIndex) const;
+};
+
 UCLASS()
 class ASSETDUMPER_API UObjectHierarchySerializer : public UObject {
     GENERATED_BODY()
@@ -29,8 +51,14 @@ public:
     TSharedRef<FJsonObject> SerializeObjectProperties(UObject* Object);
     void SerializeObjectPropertiesIntoObject(UObject* Object, TSharedPtr<FJsonObject> OutObject);
 
-	bool CompareUObjects(const int32 ObjectIndex, UObject* Object, bool bCheckExportName, bool bCheckExportOuter);
-	bool AreObjectPropertiesUpToDate(const TSharedRef<FJsonObject>& Properties, UObject* Object);
+	FORCEINLINE bool CompareUObjects(const int32 ObjectIndex, UObject* Object, bool bCheckExportName, bool bCheckExportOuter) {
+		const TSharedPtr<FObjectCompareContext> Context = MakeShareable(new FObjectCompareContext);
+		Context->SetObjectSettings(ObjectIndex, FObjectCompareSettings(bCheckExportName, bCheckExportOuter));
+		return CompareObjectsWithContext(ObjectIndex, Object, Context);
+	}
+	
+	bool CompareObjectsWithContext(const int32 ObjectIndex, UObject* Object, TSharedPtr<FObjectCompareContext> Context = MakeShareable(new FObjectCompareContext));
+	bool AreObjectPropertiesUpToDate(const TSharedRef<FJsonObject>& Properties, UObject* Object, const TSharedPtr<FObjectCompareContext> Context = MakeShareable(new FObjectCompareContext));
 
 	void FlushPropertiesIntoObject(const int32 ObjectIndex, UObject* Object, bool bVerifyNameAndRename, bool bVerifyOuterAndMove);
     void DeserializeObjectProperties(const TSharedRef<FJsonObject>& Properties, UObject* Object);
@@ -74,5 +102,5 @@ private:
     void SerializeExportedObject(TSharedPtr<FJsonObject> ResultJson, UObject* Object);
 
     UObject* DeserializeImportedObject(TSharedPtr<FJsonObject> ObjectJson);
-    UObject* DeserializeExportedObject(TSharedPtr<FJsonObject> ObjectJson);
+    UObject* DeserializeExportedObject(int32 ObjectIndex, TSharedPtr<FJsonObject> ObjectJson);
 };

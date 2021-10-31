@@ -23,7 +23,9 @@ public class AssetGenerator : ModuleRules
             "Landscape",
             "Json",
 			"UnrealEd",
+            "UMGEditor",
 			"BlueprintGraph",
+            "MovieSceneTracks",
             "AssetDumper"
         });
         
@@ -33,7 +35,9 @@ public class AssetGenerator : ModuleRules
             "RHI", 
             "AnimGraph",
             "Kismet",
-            "WorkspaceMenuStructure"
+            "WorkspaceMenuStructure",
+            "PhysicsCore",
+            "DeveloperSettings"
         });
     }
 }

@@ -7,7 +7,7 @@
 #include "UserDefinedStructure/UserDefinedStructEditorData.h"
 
 void UUserDefinedStructGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 
 	UUserDefinedStruct* NewStruct = NewObject<UUserDefinedStruct>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	check(NewStruct);

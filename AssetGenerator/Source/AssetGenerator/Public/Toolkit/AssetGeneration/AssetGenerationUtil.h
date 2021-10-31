@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 
+#define REN_DoNothing REN_DoNotDirty | REN_DontCreateRedirectors | REN_NonTransactional | REN_SkipGeneratedClasses | REN_DoNotDirty
+
 struct ASSETGENERATOR_API FDeserializedProperty {
 public:
 	FName PropertyName;

@@ -11,7 +11,7 @@
 #include "PhysicsEngine/BodySetup.h"
 
 void UStaticMeshGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(NULL, *GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UStaticMesh* NewStaticMesh = ImportStaticMesh(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewStaticMesh);
 	
@@ -103,9 +103,11 @@ void UStaticMeshGenerator::PopulateStaticMeshWithData(UStaticMesh* Asset) {
 	GetObjectSerializer()->DeserializeObjectProperties(AssetObjectProperties.ToSharedRef(), Asset);
 	
 	const TArray<TSharedPtr<FJsonValue>>& Materials = AssetData->GetArrayField(TEXT("Materials"));
-	ensure(Materials.Num() == Asset->StaticMaterials.Num());
 	
-	for (int32 i = 0; i < Materials.Num(); i++) {
+	//TODO not quite exactly the case, because for some LODs the material instances can be different, but we discard any LODs
+	//ensure(Materials.Num() == Asset->StaticMaterials.Num());
+	
+	for (int32 i = 0; i < FMath::Min(Materials.Num(), Asset->StaticMaterials.Num()); i++) {
 		const TSharedPtr<FJsonObject> MaterialObject = Materials[i]->AsObject();
 		const FName MaterialSlotName = FName(*MaterialObject->GetStringField(TEXT("MaterialSlotName")));
 		UObject* MaterialInterface = GetObjectSerializer()->DeserializeObject(MaterialObject->GetIntegerField(TEXT("MaterialInterface")));
@@ -136,9 +138,10 @@ bool UStaticMeshGenerator::IsStaticMeshDataUpToDate(UStaticMesh* Asset) const {
 
 	//check material slot names and values
 	const TArray<TSharedPtr<FJsonValue>>& Materials = AssetData->GetArrayField(TEXT("Materials"));
-	ensure(Materials.Num() == Asset->StaticMaterials.Num());
-
-	for (int32 i = 0; i < Materials.Num(); i++) {
+	//TODO not quite exactly the case, because for some LODs the material instances can be different, but we discard any LODs
+	//ensure(Materials.Num() == Asset->StaticMaterials.Num());
+	
+	for (int32 i = 0; i < FMath::Min(Materials.Num(), Asset->StaticMaterials.Num()); i++) {
 		const TSharedPtr<FJsonObject> MaterialObject = Materials[i]->AsObject();
 		
 		const FName MaterialSlotName = FName(*MaterialObject->GetStringField(TEXT("MaterialSlotName")));

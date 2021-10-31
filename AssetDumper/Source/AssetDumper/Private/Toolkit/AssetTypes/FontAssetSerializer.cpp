@@ -4,6 +4,7 @@
 #include "Toolkit/AssetTypes/TextureAssetSerializer.h"
 #include "Engine/Font.h"
 #include "Toolkit/ObjectHierarchySerializer.h"
+#include "Toolkit/AssetDumping/AssetDumpProcessor.h"
 #include "Toolkit/AssetDumping/AssetTypeSerializerMacros.h"
 #include "Toolkit/AssetDumping/SerializationContext.h"
 
@@ -19,8 +20,8 @@ void UFontAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext> Cont
 
 		//Serialize Font glyph data into separate file, because it's quite big
 		const FString GlyphDataFilename = Context->GetDumpFilePath(TEXT("GlyphData"), TEXT("bin"));
-		const TUniquePtr<FArchive> Writer = TUniquePtr<FArchive>(IFileManager::Get().CreateFileWriter(*GlyphDataFilename));
 		
+		const TUniquePtr<FArchive> Writer = TUniquePtr<FArchive>(IFileManager::Get().CreateFileWriter(*GlyphDataFilename));
 		*Writer << Asset->Characters;
 		*Writer << Asset->IsRemapped;
 		*Writer << Asset->CharRemap;
