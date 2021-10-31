@@ -262,7 +262,9 @@ void UBlueprintGenerator::PopulateStageDependencies(TArray<FAssetDependency>& Ou
 				const TSharedPtr<FJsonObject> FunctionProperty = FunctionProperties[j]->AsObject();
 				check(FunctionProperty->GetStringField(TEXT("FieldKind")) == TEXT("Property"));
 			
-				FAssetGenerationUtil::GetPropertyDependencies(FunctionProperty, GetObjectSerializer(), AllDependencyNames);
+				if (FAssetGenerationUtil::IsFunctionSignatureRelevantProperty(FunctionProperty)) {
+					FAssetGenerationUtil::GetPropertyDependencies(FunctionProperty, GetObjectSerializer(), AllDependencyNames);
+				}
 			}
 		}
 		for (const FString& PackageName : AllDependencyNames) {

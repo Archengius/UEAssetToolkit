@@ -256,6 +256,15 @@ bool FFbxMeshExporter::ExportAnimSequenceIntoFbxFile(UAnimSequence* AnimSequence
 	return bResult;
 }
 
+int32 USkeleton_GetCompressedAnimationTrackIndex(const int32 InSkeletonBoneIndex, const UAnimSequence* InAnimSeq) {
+	if(InSkeletonBoneIndex != INDEX_NONE) {
+		return InAnimSeq->GetCompressedTrackToSkeletonMapTable().IndexOfByPredicate([&](const FTrackToSkeletonMap& TrackToSkel){
+			return TrackToSkel.BoneTreeIndex == InSkeletonBoneIndex;
+		});
+	}
+	return INDEX_NONE;
+}
+
 void FFbxMeshExporter::ExportAnimSequence(const UAnimSequence* AnimSeq, TArray<FbxNode*>& BoneNodes, USkeletalMesh* SkeletalMesh, FbxAnimStack* AnimStack, FbxAnimLayer* InAnimLayer, float AnimStartOffset, float AnimEndOffset, float AnimPlayRate, float StartTime) {
 	// stack allocator for extracting curve
 	FMemMark Mark(FMemStack::Get());
@@ -285,7 +294,7 @@ void FFbxMeshExporter::ExportAnimSequence(const UAnimSequence* AnimSeq, TArray<F
 	// Add the animation data to the bone nodes
 	for(int32 BoneIndex = 0; BoneIndex < BoneNodes.Num(); BoneIndex++) {
 		FbxNode* CurrentBoneNode = BoneNodes[BoneIndex];
-
+	
 		// Create the AnimCurves
 		const uint32 NumberOfCurves = 9;
 		FbxAnimCurve* Curves[NumberOfCurves];
@@ -304,7 +313,7 @@ void FFbxMeshExporter::ExportAnimSequence(const UAnimSequence* AnimSeq, TArray<F
 		Curves[8] = CurrentBoneNode->LclScaling.GetCurve(InAnimLayer, FBXSDK_CURVENODE_COMPONENT_Z, true);
 
 		const int32 BoneTreeIndex = SkeletalMesh ? Skeleton->GetSkeletonBoneIndexFromMeshBoneIndex(SkeletalMesh, BoneIndex) : BoneIndex;
-		int32 BoneTrackIndex = Skeleton->GetRawAnimationTrackIndex(BoneTreeIndex, AnimSeq);
+		int32 BoneTrackIndex = USkeleton_GetCompressedAnimationTrackIndex(BoneTreeIndex, AnimSeq);
 		
 		if(BoneTrackIndex == INDEX_NONE) {
 			// If this sequence does not have a track for the current bone, then skip it
@@ -317,19 +326,20 @@ void FFbxMeshExporter::ExportAnimSequence(const UAnimSequence* AnimSeq, TArray<F
 
 		auto ExportLambda = [&](float AnimTime, FbxTime ExportTime, bool bLastKey) {
 			FTransform BoneAtom;
-			AnimSeq->GetBoneTransform(BoneAtom, BoneTrackIndex, AnimTime, true);
-
-			const FbxVector4 Translation = FFbxDataConverter::ConvertToFbxPos(BoneAtom.GetTranslation());
-			const FbxVector4 Rotation = FFbxDataConverter::ConvertToFbxRot(BoneAtom.GetRotation().Euler());
-			const FbxVector4 Scale = FFbxDataConverter::ConvertToFbxScale(BoneAtom.GetScale3D());
+			AnimSeq->GetBoneTransform(BoneAtom, BoneTrackIndex, AnimTime, false);
+			FbxAMatrix FbxMatrix = FFbxDataConverter::ConvertMatrix(BoneAtom.ToMatrixWithScale());
+			
+			FbxVector4 Translation = FbxMatrix.GetT();
+			FbxVector4 Rotation = FbxMatrix.GetR();
+			FbxVector4 Scale = FbxMatrix.GetS();
 			FbxVector4 Vectors[3] = { Translation, Rotation, Scale };
 
 			// Loop over each curve and channel to set correct values
 			for (uint32 CurveIndex = 0; CurveIndex < 3; ++CurveIndex) {
 				for (uint32 ChannelIndex = 0; ChannelIndex < 3; ++ChannelIndex) {
-					const uint32 OffsetCurveIndex = (CurveIndex * 3) + ChannelIndex;
+					uint32 OffsetCurveIndex = (CurveIndex * 3) + ChannelIndex;
 
-					const int32 lKeyIndex = Curves[OffsetCurveIndex]->KeyAdd(ExportTime);
+					int32 lKeyIndex = Curves[OffsetCurveIndex]->KeyAdd(ExportTime);
 					Curves[OffsetCurveIndex]->KeySetValue(lKeyIndex, Vectors[CurveIndex][ChannelIndex]);
 					Curves[OffsetCurveIndex]->KeySetInterpolation(lKeyIndex, bLastKey ? FbxAnimCurveDef::eInterpolationConstant : FbxAnimCurveDef::eInterpolationCubic);
 
@@ -430,7 +440,7 @@ void FFbxMeshExporter::ExportCustomAnimCurvesToFbx(const TMap<FName, FbxAnimCurv
 	auto ExportLambda = [&](float AnimTime, FbxTime ExportTime, bool bLastKey) {
 		FBlendedCurve BlendedCurve;
 		BlendedCurve.InitFrom(&AnimCurveUIDs);
-		AnimSequence->EvaluateCurveData(BlendedCurve, AnimTime, true);
+		AnimSequence->EvaluateCurveData(BlendedCurve, AnimTime, false);
 		
 		if (BlendedCurve.IsValid()) {
 			//Loop over the custom curves and add the actual keys

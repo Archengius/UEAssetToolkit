@@ -307,3 +307,8 @@ bool FAssetGenerationUtil::AreStructDescriptionsEqual(const FStructVariableDescr
         A.ToolTip == B.ToolTip;
 }
 
+bool FAssetGenerationUtil::IsFunctionSignatureRelevantProperty(const TSharedPtr<FJsonObject>& PropertyObject) {
+	EPropertyFlags PropertyFlags = (EPropertyFlags) FCString::Atoi64(*PropertyObject->GetStringField(TEXT("PropertyFlags")));
+	return (PropertyFlags & (CPF_Parm | CPF_OutParm | CPF_ReturnParm)) != 0;
+}
+

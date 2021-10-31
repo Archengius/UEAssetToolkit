@@ -23,6 +23,7 @@ public:
 	static float ConvertDist(FbxDouble Distance);
 	static FTransform ConvertTransform(FbxAMatrix Matrix);
 	static FMatrix ConvertMatrix(FbxAMatrix Matrix);
+	static FbxAMatrix ConvertMatrix(const FMatrix& UEMatrix);
 
 	/*
 	 * Convert fbx linear space color to sRGB FColor

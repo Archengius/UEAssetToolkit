@@ -74,4 +74,6 @@ public:
 	static bool PopulateStructVariable(const TSharedPtr<FJsonObject>& PropertyObject, UObjectHierarchySerializer* ObjectSerializer, struct FStructVariableDescription& OutStructVariable);
 
 	static bool AreStructDescriptionsEqual(const FStructVariableDescription& A, const FStructVariableDescription& B);
+	
+	static bool IsFunctionSignatureRelevantProperty(const TSharedPtr<FJsonObject>& PropertyObject);
 };
