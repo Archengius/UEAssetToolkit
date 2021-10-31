@@ -106,7 +106,7 @@ TSharedPtr<FJsonObject> FKismetBytecodeDisassemblerJson::SerializeExpression(int
 			TArray<TSharedPtr<FJsonValue>> Values;
 			ReadInt(ScriptIndex); //Skip element amount
 				
-			while (Script[ScriptIndex] != EX_EndMap) {
+			while (Script[ScriptIndex] != EX_EndMapConst) {
 				TSharedPtr<FJsonObject> KeyExpression = SerializeExpression(ScriptIndex);
 				TSharedPtr<FJsonObject> ValueExpression = SerializeExpression(ScriptIndex);
 				
