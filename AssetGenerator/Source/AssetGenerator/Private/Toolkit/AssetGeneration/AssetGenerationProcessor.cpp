@@ -126,7 +126,8 @@ void FAssetGenerationProcessor::OnGeneratorStageAdvanced(UAssetTypeGenerator* Ge
 FAssetGeneratorConfiguration::FAssetGeneratorConfiguration() :
 		DumpRootDirectory(FPaths::ProjectDir() + TEXT("AssetDump/")),
 		MaxAssetsToAdvancePerTick(4),
-		bRefreshExistingAssets(true) {
+		bRefreshExistingAssets(true),
+		bGeneratePublicProject(false) {
 }
 
 FAssetGenStatistics::FAssetGenStatistics() {
@@ -204,7 +205,7 @@ EAddPackageResult FAssetGenerationProcessor::AddPackage(const FName PackageName)
 	}
 	
 	//First, try to extract package from the dump
-	UAssetTypeGenerator* AssetTypeGenerator = UAssetTypeGenerator::InitializeFromFile(Configuration.DumpRootDirectory, PackageName);
+	UAssetTypeGenerator* AssetTypeGenerator = UAssetTypeGenerator::InitializeFromFile(Configuration.DumpRootDirectory, PackageName, Configuration.bGeneratePublicProject);
 	if (AssetTypeGenerator != NULL) {
 		FString OutSkipReason;
 		//Skip the package if it's not whitelisted by the configuration

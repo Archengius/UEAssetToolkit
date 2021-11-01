@@ -45,7 +45,7 @@ public:
 	
 	FORCEINLINE FDeserializedFunction() : FunctionFlags(FUNC_None), bIsUberGraphFunction(false), bIsDelegateSignatureFunction(false), bIsCallingIntoUbergraph(false) {}
 
-	FDeserializedFunction(const TSharedPtr<FJsonObject>& Object, class UObjectHierarchySerializer* ObjectSerializer);
+	FDeserializedFunction(const TSharedPtr<FJsonObject>& Object, class UObjectHierarchySerializer* ObjectSerializer, bool bDeserializeOnlySignatureProperties = false);
 	
 	FORCEINLINE bool HasAllFunctionFlags(EFunctionFlags Flags) const {
 		return (FunctionFlags & Flags) == Flags;

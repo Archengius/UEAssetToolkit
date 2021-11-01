@@ -111,7 +111,7 @@ FDeserializedProperty::FDeserializedProperty(const TSharedPtr<FJsonObject>& Obje
 	FAssetGenerationUtil::ConvertPropertyObjectToGraphPinType(Object, this->GraphPinType, ObjectSerializer);
 }
 
-FDeserializedFunction::FDeserializedFunction(const TSharedPtr<FJsonObject>& Object, UObjectHierarchySerializer* ObjectSerializer) {
+FDeserializedFunction::FDeserializedFunction(const TSharedPtr<FJsonObject>& Object, UObjectHierarchySerializer* ObjectSerializer, bool bDeserializeOnlySignatureProperties) {
 	check(Object->GetStringField(TEXT("FieldKind")) == TEXT("Function"));
 
 	const FString FunctionNameString = Object->GetStringField(TEXT("ObjectName"));
@@ -122,6 +122,10 @@ FDeserializedFunction::FDeserializedFunction(const TSharedPtr<FJsonObject>& Obje
 	
 	for (int32 j = 0; j < FunctionProperties.Num(); j++) {
 		const TSharedPtr<FJsonObject> FunctionProperty = FunctionProperties[j]->AsObject();
+		if (bDeserializeOnlySignatureProperties && !FAssetGenerationUtil::IsFunctionSignatureRelevantProperty(FunctionProperty)) {
+			continue;
+		}
+		
 		FDeserializedProperty DeserializedProperty(FunctionProperty, ObjectSerializer);
 
 		if (DeserializedProperty.HasAnyPropertyFlags(CPF_ReturnParm)) {

@@ -436,6 +436,50 @@ void UObjectHierarchySerializer::CollectObjectPackages(const int32 ObjectIndex, 
     }
 }
 
+FString UObjectHierarchySerializer::GetObjectFullPath(int32 ObjectIndex) {
+	const TSharedPtr<FJsonObject> Object = SerializedObjects.FindChecked(ObjectIndex);
+	const FString ObjectType = Object->GetStringField(TEXT("Type"));
+    
+	if (ObjectType == TEXT("Import")) {
+		FString ResultPath;
+
+		if (Object->HasField(TEXT("Outer"))) {
+			const int32 OuterObjectIndex = Object->GetIntegerField(TEXT("Outer"));
+			ResultPath.Append(GetObjectFullPath(OuterObjectIndex));
+		
+			ResultPath.Append(TEXT("."));
+		}
+		
+		const FString ObjectName = Object->GetStringField(TEXT("ObjectName"));
+		ResultPath.Append(ObjectName);
+		
+		return ResultPath;
+	}
+	
+	if (ObjectType == TEXT("Export")) {
+		if (Object->HasField(TEXT("ObjectMark"))) {
+			const FString ObjectMark = Object->GetStringField(TEXT("ObjectMark"));
+			return FString::Printf(TEXT("ObjectMark('%s')"), *ObjectMark);
+		}
+		
+		if (!Object->HasField(TEXT("Outer"))) {
+			return TEXT("SelfPackage()");
+		}
+
+		FString ResultPath;
+		const int32 OuterObjectIndex = Object->GetIntegerField(TEXT("Outer"));
+		ResultPath.Append(GetObjectFullPath(OuterObjectIndex));
+		ResultPath.Append(TEXT("."));
+		
+		const FString ObjectName = Object->GetStringField(TEXT("ObjectName"));
+		ResultPath.Append(ObjectName);
+		return ResultPath;
+	}
+	
+	checkf(0, TEXT("Unknown object type: %s"), *ObjectType);
+	return TEXT("");
+}
+
 UObject* UObjectHierarchySerializer::DeserializeExportedObject(int32 ObjectIndex, TSharedPtr<FJsonObject> ObjectJson) {
     //Object is defined inside our own package, so we should have
     const int32 ObjectClassIndex = ObjectJson->GetIntegerField(TEXT("ObjectClass"));
@@ -537,7 +581,7 @@ UObject* UObjectHierarchySerializer::DeserializeImportedObject(TSharedPtr<FJsonO
 	//Use FindObjectFast now to resolve our object inside Outer
 	UObject* ResultObject = StaticFindObjectFast(ObjectClass, OuterObject, *ObjectName);
 	if (ResultObject == NULL) {
-		UE_LOG(LogObjectHierarchySerializer, Error, TEXT("Cannot resolve object %s inside of the outer %s (requested by %s)"), *ObjectName, *OuterObject->GetPathName(), *SourcePackage->GetName());
+		UE_LOG(LogObjectHierarchySerializer, Error, TEXT("Cannot resolve object %s inside of the outer %s (requested by %s)"), *ObjectName, *OuterObject->GetPathName(), *SourcePackage->GetPathName());
 		return NULL;
 	}
 	

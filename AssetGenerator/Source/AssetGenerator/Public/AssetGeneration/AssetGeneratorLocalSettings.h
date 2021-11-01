@@ -13,7 +13,8 @@ public:
 public:
 	UAssetGeneratorLocalSettings() :
 		MaxAssetsToAdvancePerTick(4),
-		bRefreshExistingAssets(true) {
+		bRefreshExistingAssets(true),
+		bGeneratePublicProject(false) {
 	}
 	
 	/** Path to the asset dump last generated from, or empty string */
@@ -31,4 +32,8 @@ public:
 	/** Whenever existing assets need to be refreshed */
 	UPROPERTY(EditAnywhere, Config, Category = "Asset Generator")
 	bool bRefreshExistingAssets;
+
+	/** Whenever we are generating a public project */
+	UPROPERTY(EditAnywhere, Config, Category = "Asset Generator")
+	bool bGeneratePublicProject;
 };

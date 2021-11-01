@@ -327,11 +327,10 @@ void FFbxMeshExporter::ExportAnimSequence(const UAnimSequence* AnimSeq, TArray<F
 		auto ExportLambda = [&](float AnimTime, FbxTime ExportTime, bool bLastKey) {
 			FTransform BoneAtom;
 			AnimSeq->GetBoneTransform(BoneAtom, BoneTrackIndex, AnimTime, false);
-			FbxAMatrix FbxMatrix = FFbxDataConverter::ConvertMatrix(BoneAtom.ToMatrixWithScale());
 			
-			FbxVector4 Translation = FbxMatrix.GetT();
-			FbxVector4 Rotation = FbxMatrix.GetR();
-			FbxVector4 Scale = FbxMatrix.GetS();
+			const FbxVector4 Translation = FFbxDataConverter::ConvertToFbxPos(BoneAtom.GetTranslation());
+			const FbxVector4 Rotation = FFbxDataConverter::ConvertToFbxRot(BoneAtom.GetRotation().Euler());
+			const FbxVector4 Scale = FFbxDataConverter::ConvertToFbxScale(BoneAtom.GetScale3D());
 			FbxVector4 Vectors[3] = { Translation, Rotation, Scale };
 
 			// Loop over each curve and channel to set correct values

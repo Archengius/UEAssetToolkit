@@ -94,6 +94,8 @@ public:
 
 	void CollectObjectPackages(const int32 ObjectIndex, TArray<FString>& OutReferencedPackageNames, TArray<int32>& ObjectsAlreadySerialized);
 
+	FString GetObjectFullPath(int32 ObjectIndex);
+
     FORCEINLINE static const TSet<FName>& GetUnhandledNativeClasses() { return UnhandledNativeClasses; }
 private:
     static TSet<FName> UnhandledNativeClasses;

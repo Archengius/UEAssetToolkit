@@ -328,6 +328,7 @@ void UMaterialGenerator::ApplyOtherLayoutChanges(UMaterial* Material, FMaterialL
 		if (!AlreadyReferencedTextures.Contains(ReferencedTexture)) {
 			UMaterialExpressionTextureSample* TextureSample = SpawnMaterialExpression<UMaterialExpressionTextureSample>(Material);
 			TextureSample->Texture = ReferencedTexture;
+			TextureSample->AutoSetSampleType();
 		}
 	}
 }
@@ -549,9 +550,6 @@ void UMaterialGenerator::CleanupStubMaterialNodes(UMaterial* Material) {
 	}
 }
 
-//Tries to connect BaseColor and Normal Pins to the first texture samplers of the matching types in a desperate
-//attempt to make stub materials at least somehow displayable in the editor without manually editing all of them first
-//also connect all unconnected parameters to the same sum node and then multiply it by 0
 void UMaterialGenerator::TryConnectBasicMaterialPins(UMaterial* Material) {
 	FExpressionInput& BaseColorInput = Material->BaseColor;
 	FExpressionInput& NormalInput = Material->Normal;

@@ -60,12 +60,13 @@ FReply SAssetGeneratorWidget::OnGenerateAssetsButtonPressed() {
 		return FReply::Handled();
 	}
 
-	FAssetGeneratorConfiguration AssetGeneratorConfiguration;
-	AssetGeneratorConfiguration.DumpRootDirectory = GetAssetDumpFolderPath();
-	AssetGeneratorConfiguration.bRefreshExistingAssets = LocalSettings->bRefreshExistingAssets;
-	AssetGeneratorConfiguration.MaxAssetsToAdvancePerTick = LocalSettings->MaxAssetsToAdvancePerTick;
+	FAssetGeneratorConfiguration Configuration;
+	Configuration.DumpRootDirectory = GetAssetDumpFolderPath();
+	Configuration.bRefreshExistingAssets = LocalSettings->bRefreshExistingAssets;
+	Configuration.MaxAssetsToAdvancePerTick = LocalSettings->MaxAssetsToAdvancePerTick;
+	Configuration.bGeneratePublicProject = LocalSettings->bGeneratePublicProject;
 	
-	FAssetGenerationProcessor::CreateAssetGenerator(AssetGeneratorConfiguration, SelectedAssetPackages);
+	FAssetGenerationProcessor::CreateAssetGenerator(Configuration, SelectedAssetPackages);
 	return FReply::Handled();
 }
 
@@ -216,6 +217,23 @@ TSharedRef<SWidget> SAssetGeneratorWidget::CreateSettingsCategory() {
 					LocalSettings->SaveConfig();
 				})
            ]
+		]
+		+SVerticalBox::Slot().AutoHeight().Padding(FMargin(5.0f, 2.0f))[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot().AutoWidth().HAlign(HAlign_Center).VAlign(VAlign_Center)[
+				SNew(STextBlock)
+				.Text(LOCTEXT("AssetGenerator_GeneratePublicProject", "Generate Public Project: "))
+			]
+		   +SHorizontalBox::Slot().AutoWidth().HAlign(HAlign_Center).VAlign(VAlign_Center)[
+				SNew(SCheckBox)
+				.IsChecked_Lambda([this]() {
+					return LocalSettings->bGeneratePublicProject ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+				})
+				.OnCheckStateChanged_Lambda([this](const ECheckBoxState NewState) {
+					LocalSettings->bGeneratePublicProject = NewState == ECheckBoxState::Checked;
+					LocalSettings->SaveConfig();
+				})
+		   ]
 		];
 }
 

@@ -12,6 +12,7 @@ protected:
 	virtual void PostInitializeAssetGenerator() override;
 	virtual UBlueprint* CreateNewBlueprint(UPackage* Package, UClass* ParentClass) override;
 	virtual void FinalizeAssetCDO() override;
+	virtual UClass* GetFallbackParentClass() const override;
 public:
 	virtual FName GetAssetClass() override;
 	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const override;

@@ -53,7 +53,7 @@ private:
 	UObject* AssetObject;
 
 	/** Initializes this asset generator instance with the file data */
-	void InitializeInternal(const FString& PackageBaseDirectory, FName PackageName, TSharedPtr<FJsonObject> RootFileObject);
+	void InitializeInternal(const FString& PackageBaseDirectory, FName PackageName, TSharedPtr<FJsonObject> RootFileObject, bool bGeneratePublicProject);
 
 	/** Dispatches asset construction and tries to locate existing packages */
 	void ConstructAssetAndPackage();
@@ -139,7 +139,7 @@ public:
 	static FString GetAssetFilePath(const FString& RootDirectory, FName PackageName);
 
 	/** Tries to load asset generator state from the asset dump located under the provided root directory and having given package name */
-	static UAssetTypeGenerator* InitializeFromFile(const FString& RootDirectory, FName PackageName);
+	static UAssetTypeGenerator* InitializeFromFile(const FString& RootDirectory, FName PackageName, bool bGeneratePublicProject);
 
 	static TArray<TSubclassOf<UAssetTypeGenerator>> GetAllGenerators();
 

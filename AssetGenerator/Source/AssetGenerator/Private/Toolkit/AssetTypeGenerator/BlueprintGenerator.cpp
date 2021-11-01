@@ -16,6 +16,8 @@
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Animation/AnimBlueprint.h"
 
+#define LOCTEXT_NAMESPACE "AssetGenerator"
+
 UBlueprint* UBlueprintGenerator::CreateNewBlueprint(UPackage* Package, UClass* ParentClass) {
 	EBlueprintType BlueprintType = BPTYPE_Normal;
 
@@ -33,7 +35,21 @@ UBlueprint* UBlueprintGenerator::CreateNewBlueprint(UPackage* Package, UClass* P
 
 void UBlueprintGenerator::CreateAssetPackage() {
 	const int32 SuperStructIndex = GetAssetData()->GetIntegerField(TEXT("SuperStruct"));
-	UClass* ParentClass = CastChecked<UClass>(GetObjectSerializer()->DeserializeObject(SuperStructIndex));
+	UClass* ParentClass = Cast<UClass>(GetObjectSerializer()->DeserializeObject(SuperStructIndex));
+	
+	if (ParentClass == NULL) {
+		const FString ObjectName = GetObjectSerializer()->GetObjectFullPath(SuperStructIndex);
+		
+		const FText MessageRaw = LOCTEXT("ParentClassNotFoundForBlueprint", "Cannot resolve parent class {ParentClass} for blueprint {Blueprint}");
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("Blueprint"), FText::FromName(GetPackageName()));
+		Arguments.Add(TEXT("ParentClass"), FText::FromString(*ObjectName));
+		
+		if (!FApp::IsUnattended()) {
+			FMessageDialog::Open(EAppMsgType::Ok, FText::Format(MessageRaw, Arguments));
+		}
+		ParentClass = GetFallbackParentClass();
+	}
 
 	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
 	UBlueprint* NewBlueprint = CreateNewBlueprint(NewPackage, ParentClass);
@@ -49,10 +65,10 @@ void UBlueprintGenerator::OnExistingPackageLoaded() {
 	UBlueprint* Blueprint = GetAsset<UBlueprint>();
 
 	const int32 SuperStructIndex = GetAssetData()->GetIntegerField(TEXT("SuperStruct"));
-	UClass* ParentClass = CastChecked<UClass>(GetObjectSerializer()->DeserializeObject(SuperStructIndex));
+	UClass* ParentClass = Cast<UClass>(GetObjectSerializer()->DeserializeObject(SuperStructIndex));
 
 	//Make sure blueprint has correct parent class, and if it doesn't re-parent it, hopefully without causing too many issues
-	if (Blueprint->ParentClass != ParentClass) {
+	if (ParentClass != NULL && Blueprint->ParentClass != ParentClass) {
 		UE_LOG(LogAssetGenerator, Warning, TEXT("Reparenting Blueprint %s (%s -> %s)"), *Blueprint->GetPathName(), *Blueprint->ParentClass->GetPathName(), *ParentClass->GetPathName());
 
 		FBlueprintGeneratorUtils::EnsureBlueprintUpToDate(Blueprint);
@@ -128,7 +144,7 @@ void UBlueprintGenerator::PopulateAssetWithData() {
 
 	for (int32 i = 0; i < Children.Num(); i++) {
 		const TSharedPtr<FJsonObject> FunctionObject = Children[i]->AsObject();
-		FDeserializedFunction DeserializedFunction(FunctionObject, GetObjectSerializer());
+		FDeserializedFunction DeserializedFunction(FunctionObject, GetObjectSerializer(), true);
 		FunctionMap.Add(DeserializedFunction.FunctionName, MoveTemp(DeserializedFunction));
 	}
 
@@ -214,6 +230,10 @@ void UBlueprintGenerator::UpdateDeserializerBlueprintClassObject(bool bRecompile
 
 	UClass* BlueprintGeneratedClass = Blueprint->GeneratedClass;
 	GetObjectSerializer()->SetObjectMark(CastChecked<UClass>(BlueprintGeneratedClass), TEXT("$AssetObject$"));
+}
+
+UClass* UBlueprintGenerator::GetFallbackParentClass() const {
+	return AActor::StaticClass();
 }
 
 void UBlueprintGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
@@ -598,7 +618,7 @@ UK2Node* FBlueprintGeneratorUtils::CreateFunctionOverride(UBlueprint* Blueprint,
 	const UEdGraphSchema_K2* GraphSchema = CastChecked<const UEdGraphSchema_K2>(NewGraph->GetSchema());
 	
 	GraphSchema->CreateDefaultNodesForGraph(*NewGraph);
-	GraphSchema->CreateFunctionGraphTerminators(*NewGraph, Function);
+	GraphSchema->CreateFunctionGraphTerminators(*NewGraph, FunctionOwnerClass);
 	
 	Blueprint->FunctionGraphs.Add(NewGraph);
 

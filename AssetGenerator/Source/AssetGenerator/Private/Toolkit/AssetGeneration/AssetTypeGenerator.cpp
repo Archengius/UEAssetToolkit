@@ -52,7 +52,7 @@ UAssetTypeGenerator::UAssetTypeGenerator() {
 	this->bIsGeneratingPublicProject = false;
 }
 
-void UAssetTypeGenerator::InitializeInternal(const FString& InPackageBaseDirectory, const FName InPackageName, const TSharedPtr<FJsonObject> RootFileObject) {
+void UAssetTypeGenerator::InitializeInternal(const FString& InPackageBaseDirectory, const FName InPackageName, const TSharedPtr<FJsonObject> RootFileObject, bool bGeneratePublicProject) {
 	this->PackageBaseDirectory = InPackageBaseDirectory;
 	this->PackageName = FName(*RootFileObject->GetStringField(TEXT("AssetPackage")));
 	this->AssetName = FName(*RootFileObject->GetStringField(TEXT("AssetName")));
@@ -62,6 +62,7 @@ void UAssetTypeGenerator::InitializeInternal(const FString& InPackageBaseDirecto
 	const TArray<TSharedPtr<FJsonValue>> ObjectHierarchy = RootFileObject->GetArrayField(TEXT("ObjectHierarchy"));
 	this->ObjectSerializer->InitializeForDeserialization(ObjectHierarchy);
 	this->AssetData = RootFileObject->GetObjectField(TEXT("AssetSerializedData"));
+	this->bIsGeneratingPublicProject = bGeneratePublicProject;
 	PostInitializeAssetGenerator();
 }
 
@@ -171,7 +172,7 @@ FString UAssetTypeGenerator::GetAssetFilePath(const FString& RootDirectory, FNam
 	return FPaths::Combine(PackageBaseDirectory, AssetDumpFilename);
 }
 
-UAssetTypeGenerator* UAssetTypeGenerator::InitializeFromFile(const FString& RootDirectory, const FName PackageName) {
+UAssetTypeGenerator* UAssetTypeGenerator::InitializeFromFile(const FString& RootDirectory, const FName PackageName, bool bGeneratePublicProject) {
 	const FString AssetDumpFilePath = GetAssetFilePath(RootDirectory, PackageName);
 	const FString PackageBaseDirectory = FPaths::GetPath(AssetDumpFilePath);
 
@@ -201,7 +202,7 @@ UAssetTypeGenerator* UAssetTypeGenerator::InitializeFromFile(const FString& Root
 	}
 
 	UAssetTypeGenerator* NewGenerator = NewObject<UAssetTypeGenerator>(GetTransientPackage(), AssetTypeGenerator);
-	NewGenerator->InitializeInternal(PackageBaseDirectory, PackageName, RootFileObject);
+	NewGenerator->InitializeInternal(PackageBaseDirectory, PackageName, RootFileObject, bGeneratePublicProject);
 	return NewGenerator;
 }
 

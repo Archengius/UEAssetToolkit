@@ -8,6 +8,7 @@
 #include "Factories/FbxSkeletalMeshImportData.h"
 #include "Factories/ReimportFbxSkeletalMeshFactory.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "Toolkit/AssetGeneration/PublicProjectStubHelper.h"
 
 void USkeletalMeshGenerator::CreateAssetPackage() {
 	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
@@ -38,7 +39,12 @@ USkeletalMesh* USkeletalMeshGenerator::ImportSkeletalMesh(UPackage* Package, con
 	SkeletalMeshFactory->SetDetectImportTypeOnImport(false);
 	SetupFbxImportSettings(SkeletalMeshFactory->ImportUI);
 
-	const FString AssetFbxFilePath = GetAdditionalDumpFilePath(TEXT(""), TEXT("fbx"));
+	FString AssetFbxFilePath;
+	if (!IsGeneratingPublicProject()) {
+		AssetFbxFilePath = GetAdditionalDumpFilePath(TEXT(""), TEXT("fbx"));;
+	} else {
+		AssetFbxFilePath = FPublicProjectStubHelper::DefaultSkeletalMesh.GetFullFilePath();
+	}
 	
 	bool bOperationCancelled = false;
 	UObject* ResultMesh = SkeletalMeshFactory->ImportObject(USkeletalMesh::StaticClass(), Package, AssetName, ObjectFlags, AssetFbxFilePath, TEXT(""), bOperationCancelled);
@@ -57,7 +63,12 @@ void USkeletalMeshGenerator::ReimportSkeletalMeshSource(USkeletalMesh* Asset) {
 	SkeletalMeshFactory->SetDetectImportTypeOnImport(false);
 	SetupFbxImportSettings(SkeletalMeshFactory->ImportUI);
 	
-	const FString AssetFbxFilePath = GetAdditionalDumpFilePath(TEXT(""), TEXT("fbx"));
+	FString AssetFbxFilePath;
+	if (!IsGeneratingPublicProject()) {
+		AssetFbxFilePath = GetAdditionalDumpFilePath(TEXT(""), TEXT("fbx"));
+	} else {
+		AssetFbxFilePath = FPublicProjectStubHelper::DefaultSkeletalMesh.GetFullFilePath();
+	}
 	
 	SkeletalMeshFactory->SetReimportPaths(Asset, {AssetFbxFilePath});
 	SkeletalMeshFactory->Reimport(Asset);
@@ -71,17 +82,24 @@ void USkeletalMeshGenerator::SetupFbxImportSettings(UFbxImportUI* ImportUI) cons
 	ImportUI->bImportTextures = false;
 	ImportUI->bImportAsSkeletal = true;
 
-	const int32 SkeletonObjectIndex = GetAssetData()->GetObjectField(TEXT("AssetObjectData"))->GetIntegerField(TEXT("Skeleton"));
-	USkeleton* Skeleton = CastChecked<USkeleton>(GetObjectSerializer()->DeserializeObject(SkeletonObjectIndex));
-	ImportUI->Skeleton = Skeleton;
+	if (!IsGeneratingPublicProject()) {
+		const int32 SkeletonObjectIndex = GetAssetData()->GetObjectField(TEXT("AssetObjectData"))->GetIntegerField(TEXT("Skeleton"));
+		USkeleton* Skeleton = CastChecked<USkeleton>(GetObjectSerializer()->DeserializeObject(SkeletonObjectIndex));
+		
+		ImportUI->Skeleton = Skeleton;
+	} else {
+		ImportUI->Skeleton = FPublicProjectStubHelper::DefaultSkeletalMeshSkeleton.GetObject();
+	}
 
 	ImportUI->SkeletalMeshImportData = NewObject<UFbxSkeletalMeshImportData>(ImportUI, NAME_None, RF_NoFlags);
-	ImportUI->SkeletalMeshImportData->ImportContentType = EFBXImportContentType::FBXICT_All;
+	ImportUI->SkeletalMeshImportData->ImportContentType = FBXICT_All;
 	ImportUI->SkeletalMeshImportData->VertexColorImportOption = EVertexColorImportOption::Replace;
-	ImportUI->SkeletalMeshImportData->bUpdateSkeletonReferencePose = true;
+	ImportUI->SkeletalMeshImportData->bUpdateSkeletonReferencePose = false;
 
-	//TODO here only until we implemented physics asset generation
-	ImportUI->bCreatePhysicsAsset = true;
+	if (!IsGeneratingPublicProject()) {
+		//TODO here only until we implement physics asset generation
+		ImportUI->bCreatePhysicsAsset = true;
+	}
 }
 
 void USkeletalMeshGenerator::GetAdditionalPackagesToSave(TArray<UPackage*>& OutPackages) {
@@ -102,9 +120,11 @@ void USkeletalMeshGenerator::PopulateSkeletalMeshProperties(USkeletalMesh* Asset
 	GetObjectSerializer()->DeserializeObjectProperties(AssetObjectProperties.ToSharedRef(), Asset);
 	
 	const TArray<TSharedPtr<FJsonValue>>& Materials = AssetData->GetArrayField(TEXT("Materials"));
-	ensure(Materials.Num() == Asset->Materials.Num());
+
+	//TODO not quite exactly the case, because for some LODs the material instances can be different, but we discard any LODs
+	//ensure(Materials.Num() == Asset->Materials.Num());
 	
-	for (int32 i = 0; i < Materials.Num(); i++) {
+	for (int32 i = 0; i < FMath::Min(Materials.Num(), Asset->Materials.Num()); i++) {
 		const TSharedPtr<FJsonObject> MaterialObject = Materials[i]->AsObject();
 		
 		const FName MaterialSlotName = FName(*MaterialObject->GetStringField(TEXT("MaterialSlotName")));
@@ -136,9 +156,11 @@ bool USkeletalMeshGenerator::IsSkeletalMeshPropertiesUpToDate(USkeletalMesh* Ass
 
 	//check material slot names and values
 	const TArray<TSharedPtr<FJsonValue>>& Materials = AssetData->GetArrayField(TEXT("Materials"));
-	ensure(Materials.Num() == Asset->Materials.Num());
 
-	for (int32 i = 0; i < Materials.Num(); i++) {
+	//TODO not quite exactly the case, because for some LODs the material instances can be different, but we discard any LODs
+	//ensure(Materials.Num() == Asset->Materials.Num());
+
+	for (int32 i = 0; i < FMath::Min(Materials.Num(), Asset->Materials.Num()); i++) {
 		const TSharedPtr<FJsonObject> MaterialObject = Materials[i]->AsObject();
 		
 		const FName MaterialSlotName = FName(*MaterialObject->GetStringField(TEXT("MaterialSlotName")));
@@ -158,7 +180,13 @@ bool USkeletalMeshGenerator::IsSkeletalMeshSourceFileUpToDate(USkeletalMesh* Ass
 	const FMD5Hash& ExistingFileHash = AssetImportInfo.SourceFiles[0].FileHash;
 	
 	const FString ExistingFileHashString = LexToString(ExistingFileHash);
-	const FString ModelFileHash = GetAssetData()->GetStringField(TEXT("ModelFileHash"));
+	
+	FString ModelFileHash;
+	if (!IsGeneratingPublicProject()) {
+		ModelFileHash = GetAssetData()->GetStringField(TEXT("ModelFileHash"));;
+	} else {
+		ModelFileHash = FPublicProjectStubHelper::DefaultSkeletalMesh.GetFileHash();
+	}
 	return ExistingFileHashString == ModelFileHash;
 }
 

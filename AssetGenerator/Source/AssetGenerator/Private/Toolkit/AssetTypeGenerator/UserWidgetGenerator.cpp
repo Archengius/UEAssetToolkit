@@ -100,6 +100,10 @@ void UUserWidgetGenerator::FinalizeAssetCDO() {
 	}
 }
 
+UClass* UUserWidgetGenerator::GetFallbackParentClass() const {
+	return UUserWidget::StaticClass();
+}
+
 FName UUserWidgetGenerator::GetAssetClass() {
 	return TEXT("WidgetBlueprint");
 }

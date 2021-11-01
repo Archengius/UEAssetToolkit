@@ -165,15 +165,12 @@ void UPropertySerializer::DeserializePropertyValueInner(FProperty* Property, con
 		*static_cast<FString*>(Value) = StringValue;
 
 	} else if (const FEnumProperty* EnumProperty = CastField<const FEnumProperty>(Property)) {
-		// K2 only supports byte enums right now - any violations should have been caught by UHT or the editor
-		if (!EnumProperty->GetUnderlyingProperty()->IsA<FByteProperty>()) {
-			UE_LOG(LogPropertySerializer, Fatal, TEXT("Unsupported Underlying Enum Property Found: %s"), *EnumProperty->GetUnderlyingProperty()->GetClass()->GetName());
-		}
 		//Prefer readable enum names in result json to raw numbers
 		const FString EnumName = JsonValue->AsString();
 		const int64 UnderlyingValue = EnumProperty->GetEnum()->GetValueByNameString(EnumName);
-		check(UnderlyingValue != INDEX_NONE);
-		*static_cast<uint8*>(Value) = static_cast<uint8>(UnderlyingValue);
+		if (ensure(UnderlyingValue != INDEX_NONE)) {
+			EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(Value, UnderlyingValue);
+		}
 
 	} else if (Property->IsA<FNameProperty>()) {
 		//Name is perfectly representable as string

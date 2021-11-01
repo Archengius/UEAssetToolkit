@@ -24,6 +24,8 @@ public:
 	int32 MaxAssetsToAdvancePerTick;
 	/** True to refresh existing assets, false to completely ignore assets already present */
 	bool bRefreshExistingAssets;
+	/** True to generate public project, with all of the non-redistributable asset files replaced with stubs */
+	bool bGeneratePublicProject;
 
 	FAssetGeneratorConfiguration();
 };

@@ -9,6 +9,7 @@
 #include "Factories/FbxStaticMeshImportData.h"
 #include "Factories/ReimportFbxStaticMeshFactory.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "Toolkit/AssetGeneration/PublicProjectStubHelper.h"
 
 void UStaticMeshGenerator::CreateAssetPackage() {
 	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
@@ -38,7 +39,12 @@ UStaticMesh* UStaticMeshGenerator::ImportStaticMesh(UPackage* Package, const FNa
 	StaticMeshFactory->SetDetectImportTypeOnImport(false);
 	SetupFbxImportSettings(StaticMeshFactory->ImportUI);
 
-	const FString AssetFbxFilePath = GetAdditionalDumpFilePath(TEXT(""), TEXT("fbx"));
+	FString AssetFbxFilePath;
+	if (!IsGeneratingPublicProject()) {
+		AssetFbxFilePath = GetAdditionalDumpFilePath(TEXT(""), TEXT("fbx"));
+	} else {
+		AssetFbxFilePath = FPublicProjectStubHelper::EditorCube.GetFullFilePath();
+	}
 	
 	bool bOperationCancelled = false;
 	UObject* ResultMesh = StaticMeshFactory->ImportObject(UStaticMesh::StaticClass(), Package, AssetName, ObjectFlags, AssetFbxFilePath, TEXT(""), bOperationCancelled);
@@ -57,7 +63,12 @@ void UStaticMeshGenerator::ReimportStaticMeshSource(UStaticMesh* Asset) {
 	StaticMeshFactory->SetDetectImportTypeOnImport(false);
 	SetupFbxImportSettings(StaticMeshFactory->ImportUI);
 	
-	const FString AssetFbxFilePath = GetAdditionalDumpFilePath(TEXT(""), TEXT("fbx"));
+	FString AssetFbxFilePath;
+	if (!IsGeneratingPublicProject()) {
+		AssetFbxFilePath = GetAdditionalDumpFilePath(TEXT(""), TEXT("fbx"));
+	} else {
+		AssetFbxFilePath = FPublicProjectStubHelper::EditorCube.GetFullFilePath();
+	}
 	
 	StaticMeshFactory->SetReimportPaths(Asset, {AssetFbxFilePath});
 	StaticMeshFactory->Reimport(Asset);
@@ -169,10 +180,20 @@ bool UStaticMeshGenerator::IsStaticMeshDataUpToDate(UStaticMesh* Asset) const {
 
 bool UStaticMeshGenerator::IsStaticMeshSourceFileUpToDate(UStaticMesh* Asset) const {
 	const FAssetImportInfo& AssetImportInfo = Asset->AssetImportData->SourceData;
-	const FMD5Hash& ExistingFileHash = AssetImportInfo.SourceFiles[0].FileHash;
 	
+	if (AssetImportInfo.SourceFiles.Num() == 0) {
+		return false;
+	}
+	
+	const FMD5Hash& ExistingFileHash = AssetImportInfo.SourceFiles[0].FileHash;
 	const FString ExistingFileHashString = LexToString(ExistingFileHash);
-	const FString ModelFileHash = GetAssetData()->GetStringField(TEXT("ModelFileHash"));
+
+	FString ModelFileHash;
+	if (!IsGeneratingPublicProject()) {
+		ModelFileHash = GetAssetData()->GetStringField(TEXT("ModelFileHash"));;
+	} else {
+		ModelFileHash = FPublicProjectStubHelper::EditorCube.GetFileHash();
+	}
 	return ExistingFileHashString == ModelFileHash;
 }
 

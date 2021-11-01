@@ -16,6 +16,7 @@ protected:
 	virtual void PopulateAssetWithData() override;
 	virtual void FinalizeAssetCDO() override;
 	void UpdateDeserializerBlueprintClassObject(bool bRecompileBlueprint);
+	virtual UClass* GetFallbackParentClass() const;
 public:
 	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const override;
 	virtual FName GetAssetClass() override;
