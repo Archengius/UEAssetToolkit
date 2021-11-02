@@ -68,6 +68,9 @@ public:
 
 	/** Retrieves blueprint variable description using it's name, or NULL if it's not found */
 	static FBPVariableDescription* FindBlueprintVariableByName(UBlueprint* Blueprint, const FName& VariableName);
+
+	/** Resets "Ghost" node state for the provided node */
+	static void ResetNodeDisabledState(UEdGraphNode* GraphNode);
 private:
 	/** Creates and initializes event graph for new event dispatcher property with provided name */
 	static UEdGraph* CreateNewBlueprintEventDispatcherSignatureGraph(UBlueprint* Blueprint, const FName& DispatcherName);

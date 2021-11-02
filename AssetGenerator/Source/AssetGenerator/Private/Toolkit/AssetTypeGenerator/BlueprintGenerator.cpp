@@ -588,6 +588,34 @@ UK2Node* FBlueprintGeneratorUtils::CreateFunctionOverride(UBlueprint* Blueprint,
 	
 		//Return existing event node first, in case of us having it already
 		UK2Node_Event* ExistingNode = FBlueprintEditorUtils::FindOverrideForFunction(Blueprint, FunctionOwnerClass, FunctionName);
+
+		//If it's a ghost node, we want to remove the ghost mark and create the parent call if it doesn't have one already
+		if (ExistingNode->IsAutomaticallyPlacedGhostNode()) {
+			ResetNodeDisabledState(ExistingNode);
+			
+			UEdGraphPin* ExecPin = ExistingNode->FindPin(UEdGraphSchema_K2::PN_Then, EGPD_Output);
+			if (ExecPin == NULL) {
+				return ExistingNode;
+			}
+			
+			if (ExecPin->HasAnyConnections()) {
+				//If we have connections, we want to determine all of the connected nodes and make sure none of them is marked as disabled
+				for (const UEdGraphPin* ConnectedPin : ExecPin->LinkedTo) {
+					UEdGraphNode* OwningNode = ConnectedPin->GetOwningNode();
+						
+					if (OwningNode->IsAutomaticallyPlacedGhostNode()) {
+						ResetNodeDisabledState(OwningNode);
+					}
+				}
+			} else {
+				//If exec pin is not connected to anything, we actually want to create the parent call node normally
+				if (bCreateParentCall) {
+					CreateParentFunctionCall(Blueprint, Function, ExistingNode, NULL);
+				}
+			}
+		}
+
+		//If node exists and it's not a ghost node, we just return early
 		if (ExistingNode) {
 			return ExistingNode;
 		}
@@ -723,7 +751,8 @@ bool FBlueprintGeneratorUtils::CreateNewBlueprintFunctions(UBlueprint* Blueprint
 		if (OverridenFunction) {
 			UK2Node_EditablePinBase* const* FunctionImplementation = FunctionAndEventNodes.Find(Function.FunctionName);
 
-			if (FunctionImplementation == NULL && bCreateFunctionOverrides) {
+			//We want to create the override even if function exists, but it's actually a ghost node
+			if ((FunctionImplementation == NULL || (*FunctionImplementation)->IsAutomaticallyPlacedGhostNode()) && bCreateFunctionOverrides) {
 				const bool bShouldGenerateAsEvent = Function.bIsCallingIntoUbergraph && UEdGraphSchema_K2::FunctionCanBePlacedAsEvent(OverridenFunction);
 				
 				CreateFunctionOverride(Blueprint, OverridenFunction, bShouldGenerateAsEvent, true);
@@ -955,6 +984,12 @@ bool FBlueprintGeneratorUtils::SetFunctionEntryParameters(UK2Node_EditablePinBas
 			bNeedToDeleteExistingPins = true;
 			break;
 		}
+
+		//TEMPFIX: If current user pins have the invalid __WorldContext pin generated, we need to regenerate pins
+		if (UserPinInfo->PinName == TEXT("__WorldContext")) {
+			bNeedToDeleteExistingPins = true;
+			break;
+		}
 	}
 	
 	//Cleanup pins if we need to because they overlap with new ones
@@ -969,7 +1004,11 @@ bool FBlueprintGeneratorUtils::SetFunctionEntryParameters(UK2Node_EditablePinBas
 	
 	for (int32 i = FirstPinIndex; i < ParameterArray.Num(); i++) {
 		const FDeserializedProperty& Property = ParameterArray[i];
-		FunctionEntry->CreateUserDefinedPin(Property.PropertyName, Property.GraphPinType, EGPD_Output);
+
+		//Skip the pin if it represents a compiler-generated world context pin
+		if (Property.PropertyName != TEXT("__WorldContext")) {
+			FunctionEntry->CreateUserDefinedPin(Property.PropertyName, Property.GraphPinType, EGPD_Output);	
+		}
 	}
 
 	//We have changed something as long as first pin index is not the last one
@@ -1000,4 +1039,11 @@ FBPVariableDescription* FBlueprintGeneratorUtils::FindBlueprintVariableByName(UB
 		}
 	}
 	return NULL;
+}
+
+void FBlueprintGeneratorUtils::ResetNodeDisabledState(UEdGraphNode* GraphNode) {
+	GraphNode->SetEnabledState(ENodeEnabledState::Enabled, true);
+	GraphNode->bCommentBubblePinned = false;
+	GraphNode->bCommentBubbleVisible = false;
+	GraphNode->NodeComment = TEXT("");
 }

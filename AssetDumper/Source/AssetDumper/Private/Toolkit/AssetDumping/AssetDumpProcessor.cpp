@@ -2,19 +2,25 @@
 #include "Async/ParallelFor.h"
 #include "Toolkit/AssetDumping/AssetTypeSerializer.h"
 #include "Toolkit/AssetDumping/SerializationContext.h"
+#include "AssetDumperModule.h"
 
 using FInlinePackageArray = TArray<FPendingPackageData, TInlineAllocator<16>>;
-DEFINE_LOG_CATEGORY(LogAssetDumper)
+
+#define DEFAULT_PACKAGES_TO_PROCESS_PER_TICK 16
 
 FAssetDumpSettings::FAssetDumpSettings() :
-		RootDumpDirectory(FPaths::ProjectDir() + TEXT("AssetDump/")),
-        MaxLoadRequestsInFly(4),
-        MaxPackagesInProcessQueue(16),
-        MaxPackagesToProcessInOneTick(FPlatformMisc::NumberOfCores() / 2),
+		RootDumpDirectory(GetDefaultRootDumpDirectory()),
+        MaxPackagesToProcessInOneTick(DEFAULT_PACKAGES_TO_PROCESS_PER_TICK),
         bForceSingleThread(false),
         bOverwriteExistingAssets(true),
 		bExitOnFinish(false),
 		GarbageCollectionInterval(10.0f) {
+}
+
+FString FAssetDumpSettings::GetDefaultRootDumpDirectory() {
+	FString ResultDefaultPath = FPaths::ProjectDir() + TEXT("AssetDump/");
+	FPaths::NormalizeDirectoryName(ResultDefaultPath);
+	return ResultDefaultPath;
 }
 
 TSharedPtr<FAssetDumpProcessor> FAssetDumpProcessor::ActiveDumpProcessor = NULL;
@@ -72,8 +78,8 @@ void FAssetDumpProcessor::Tick(float DeltaTime) {
 	}
 	
 	//Load packages as long as we have space in queue + packages to process
-	while (PackageLoadRequestsInFlyCounter.GetValue() < Settings.MaxLoadRequestsInFly &&
-			PackagesWaitingForProcessing.GetValue() < Settings.MaxPackagesInProcessQueue	&&
+	while (PackageLoadRequestsInFlyCounter.GetValue() < MaxLoadRequestsInFly &&
+			PackagesWaitingForProcessing.GetValue() < MaxPackagesInProcessQueue	&&
 			CurrentPackageToLoadIndex < PackagesToLoad.Num()) {
 		
 		//Associate package data with the package name (so we can find it later in async load request handler and increment counter)
@@ -87,12 +93,12 @@ void FAssetDumpProcessor::Tick(float DeltaTime) {
 
 	//Process pending dump requests in parallel for loop
 	FInlinePackageArray PackagesToProcessThisTick;
-	PackagesToProcessThisTick.Reserve(Settings.MaxPackagesToProcessInOneTick);
+	PackagesToProcessThisTick.Reserve(MaxPackagesToProcessInOneTick);
 
 	//Lock packages array and copy elements from it
 	this->LoadedPackagesCriticalSection.Lock();
 	
-	const int32 ElementsToCopy = FMath::Min(LoadedPackages.Num(), Settings.MaxPackagesToProcessInOneTick);
+	const int32 ElementsToCopy = FMath::Min(LoadedPackages.Num(), MaxPackagesToProcessInOneTick);
 	PackagesToProcessThisTick.Append(LoadedPackages.GetData(), ElementsToCopy);
 	LoadedPackages.RemoveAt(0, ElementsToCopy, false);
 	PackagesWaitingForProcessing.Subtract(ElementsToCopy);	
@@ -235,10 +241,14 @@ bool FAssetDumpProcessor::CreatePackageData(UPackage* Package, FPendingPackageDa
 
 void FAssetDumpProcessor::InitializeAssetDump() {
 	this->TimeSinceGarbageCollection = 0.0f;
-	this->Settings = Settings;
 	this->CurrentPackageToLoadIndex = 0;
 	this->bHasFinishedDumping = false;
 	this->PackagesTotal = PackagesToLoad.Num();
+
+	this->MaxPackagesToProcessInOneTick = Settings.MaxPackagesToProcessInOneTick;
+	this->MaxLoadRequestsInFly = Settings.MaxPackagesToProcessInOneTick;
+	this->MaxPackagesInProcessQueue = Settings.MaxPackagesToProcessInOneTick * 2;
+	
 	check(PackagesTotal);
 	UE_LOG(LogAssetDumper, Display, TEXT("Starting asset dump of %d packages..."), PackagesTotal);
 }

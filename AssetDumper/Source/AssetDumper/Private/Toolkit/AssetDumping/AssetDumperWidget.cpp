@@ -169,50 +169,6 @@ TSharedRef<SWidget> SAssetDumperWidget::CreateSettingsCategory() {
         		AssetDumpSettings.MaxPackagesToProcessInOneTick = (int32) NewValue;
         	})
         ]
-    ]
-	+SVerticalBox::Slot().Padding(FMargin(5.0f, 2.0f)).AutoHeight()[
-        SNew(SHorizontalBox)
-        +SHorizontalBox::Slot().HAlign(HAlign_Left).VAlign(VAlign_Center).AutoWidth()[
-            SNew(STextBlock)
-            .Text(LOCTEXT("AssetDumper_Settings_MaxLoadRequests", "Max Load Requests In-Fly: "))
-        ]
-        +SHorizontalBox::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center).Padding(FMargin(2.0f, 0.0f, 2.0f, 0.0f)).AutoWidth()[
-            SNew(STextBlock)
-            .Text_Lambda([this]() { return FText::FromString(FString::FromInt(AssetDumpSettings.MaxLoadRequestsInFly)); })
-        ]
-        +SHorizontalBox::Slot().FillWidth(1.0f).HAlign(HAlign_Fill).VAlign(VAlign_Center)[
-            SNew(SSlider)
-            .StepSize(1)
-            .MaxValue(64)
-            .MinValue(1)
-            .Value(AssetDumpSettings.MaxLoadRequestsInFly)
-            .ToolTipText(LOCTEXT("AssetDumper_Settings_MaxLoadRequests_Tooltip", "Specifies maximum number of packages loaded asynchronously from the disk at the same time."))
-            .OnValueChanged_Lambda([this](float NewValue) {
-                AssetDumpSettings.MaxLoadRequestsInFly = (int32) NewValue;
-            })
-        ]
-    ]
-	+SVerticalBox::Slot().Padding(FMargin(5.0f, 2.0f)).AutoHeight()[
-        SNew(SHorizontalBox)
-        +SHorizontalBox::Slot().HAlign(HAlign_Left).VAlign(VAlign_Center).AutoWidth()[
-            SNew(STextBlock)
-            .Text(LOCTEXT("AssetDumper_Settings_MaxLoadRequestsInQueue", "Max Packages In Process Queue: "))
-        ]
-        +SHorizontalBox::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center).Padding(FMargin(2.0f, 0.0f, 2.0f, 0.0f)).AutoWidth()[
-            SNew(STextBlock)
-            .Text_Lambda([this]() { return FText::FromString(FString::FromInt(AssetDumpSettings.MaxPackagesInProcessQueue)); })
-        ]
-        +SHorizontalBox::Slot().FillWidth(1.0f).HAlign(HAlign_Fill).VAlign(VAlign_Center)[
-            SNew(SSlider)
-            .StepSize(1)
-            .MaxValue(128)
-            .MinValue(1)
-            .Value(AssetDumpSettings.MaxPackagesInProcessQueue)
-            .ToolTipText(LOCTEXT("AssetDumper_Settings_MaxLoadRequestsInQueue_Tooltip", "Specifies maximum number of packages waiting to be dumped in queue, higher values increase memory consumption"))
-            .OnValueChanged_Lambda([this](float NewValue) {
-                AssetDumpSettings.MaxPackagesInProcessQueue = (int32) NewValue;
-            })
-        ]
     ];
 }
 

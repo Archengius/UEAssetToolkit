@@ -324,13 +324,28 @@ void FFbxMeshExporter::ExportAnimSequence(const UAnimSequence* AnimSeq, TArray<F
 			Curve->KeyModifyBegin();
 		}
 
+		auto SanitizeVector = [](const FVector& Vector) -> FVector {
+			FVector ResultVector = Vector;
+			if (!FMath::IsFinite(ResultVector.X)) {
+				ResultVector.X = 0.0f;
+			}
+			if (!FMath::IsFinite(ResultVector.Y)) {
+				ResultVector.Y = 0.0f;
+			}
+			if (!FMath::IsFinite(ResultVector.Z)) {
+				ResultVector.Z = 0.0f;
+			}
+			return ResultVector;
+		};
+
 		auto ExportLambda = [&](float AnimTime, FbxTime ExportTime, bool bLastKey) {
 			FTransform BoneAtom;
 			AnimSeq->GetBoneTransform(BoneAtom, BoneTrackIndex, AnimTime, false);
 			
-			const FbxVector4 Translation = FFbxDataConverter::ConvertToFbxPos(BoneAtom.GetTranslation());
-			const FbxVector4 Rotation = FFbxDataConverter::ConvertToFbxRot(BoneAtom.GetRotation().Euler());
-			const FbxVector4 Scale = FFbxDataConverter::ConvertToFbxScale(BoneAtom.GetScale3D());
+			const FbxVector4 Translation = FFbxDataConverter::ConvertToFbxPos(SanitizeVector(BoneAtom.GetTranslation()));
+			const FbxVector4 Rotation = FFbxDataConverter::ConvertToFbxRot(SanitizeVector(BoneAtom.GetRotation().Euler()));
+			const FbxVector4 Scale = FFbxDataConverter::ConvertToFbxScale(SanitizeVector(BoneAtom.GetScale3D()));
+			
 			FbxVector4 Vectors[3] = { Translation, Rotation, Scale };
 
 			// Loop over each curve and channel to set correct values

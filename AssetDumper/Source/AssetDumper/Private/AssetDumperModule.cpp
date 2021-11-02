@@ -1,9 +1,11 @@
 #include "AssetDumperModule.h"
-#include "Toolkit/AssetDumping/AssetDumpProcessor.h"
+#include "Toolkit/AssetDumping/AssetDumperCommands.h"
 
 #if METHOD_PATCHING_SUPPORTED
 #include "Patching/NativeHookManager.h"
 #endif
+
+DEFINE_LOG_CATEGORY(LogAssetDumper)
 
 void FAssetDumperModule::StartupModule() {
 	UE_LOG(LogAssetDumper, Log, TEXT("Starting up asset dumper plugin"));
@@ -11,6 +13,11 @@ void FAssetDumperModule::StartupModule() {
 	if (!GIsEditor) {
 		EnableGlobalStaticMeshCPUAccess();
 		EnableFixTireConfigSerialization();
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("DumpAllGameAssets"))) {
+		UE_LOG(LogAssetDumper, Log, TEXT("Game asset dump required through the command line. Game will dump the assets and exit"));
+		FAssetDumperCommands::DumpAllGameAssets();
 	}
 }
 

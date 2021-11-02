@@ -1,4 +1,5 @@
-﻿#include "AssetRegistryModule.h"
+﻿#include "Toolkit/AssetDumping/AssetDumperCommands.h"
+#include "AssetRegistryModule.h"
 #include "Toolkit/AssetDumping/AssetDumperWidget.h"
 #include "Toolkit/AssetDumping/AssetDumpConsoleWidget.h"
 #include "Toolkit/AssetDumping/AssetRegistryViewWidget.h"
@@ -7,7 +8,15 @@
 
 #define LOCTEXT_NAMESPACE "AssetDumper"
 
-void OpenAssetDumperUI() {
+static TAutoConsoleVariable<int32> AssetsToProcessPerTick(
+	TEXT("dumper.AssetsToProcessPerTick"), 16,
+	TEXT("Amount of assets to process per tick in automatic asset dumping using the console command or command line switch"));
+
+static TAutoConsoleVariable<bool> ForceSingleThreaded(
+	TEXT("dumper.ForceSingleThreaded"), true,
+	TEXT("Whenever to force a single-threaded dumping in automatic mode using the console command or command line switch"));
+
+void FAssetDumperCommands::OpenAssetDumperUI() {
 	TSharedRef<SWindow> Window = SNew(SWindow)
 						.Title(LOCTEXT("AssetDumper_Title", "Asset Dumper Settings"))
 						.MinWidth(800).MinHeight(600)
@@ -18,15 +27,14 @@ void OpenAssetDumperUI() {
 	FSlateApplication::Get().AddWindowAsNativeChild(Window, ParentWindow, true);
 }
 
-void OpenAssetDumperProgressConsole() {
+void FAssetDumperCommands::OpenAssetDumperProgressConsole() {
 	const TSharedPtr<FAssetDumpProcessor> ActiveProcessor = FAssetDumpProcessor::GetActiveDumpProcessor();
 	if (ActiveProcessor.IsValid()) {
 		SAssetDumpConsoleWidget::CreateForAssetDumper(ActiveProcessor.ToSharedRef());
 	}
 }
 
-void DumpAllGameAssets(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar) {
-	Ar.Log(TEXT("Starting console-driven asset dumping, dumping all assets"));
+void FAssetDumperCommands::DumpAllGameAssets() {
 	const TSharedRef<FSelectedAssetsStruct> SelectedAssetsStruct(new FSelectedAssetsStruct);
 
 	SelectedAssetsStruct->AddIncludedPackagePath(TEXT("/"));
@@ -39,27 +47,43 @@ void DumpAllGameAssets(const TArray<FString>& Args, UWorld* World, FOutputDevice
 		}
 	}
 
-	Ar.Log(TEXT("Gathering asset data under / path, this may take a while..."));
+	UE_LOG(LogAssetDumper, Log, TEXT("Gathering asset data under / path, this may take a while..."));
 	SelectedAssetsStruct->GatherAssetsData();
 
 	const TMap<FName, FAssetData>& AssetData = SelectedAssetsStruct->GetGatheredAssets();
-	Ar.Logf(TEXT("Asset data gathered successfully! Gathered %d assets for dumping"), AssetData.Num());
+	UE_LOG(LogAssetDumper, Log, TEXT("Asset data gathered successfully! Gathered %d assets for dumping"), AssetData.Num());
 
 	FAssetDumpSettings DumpSettings{};
+	DumpSettings.MaxPackagesToProcessInOneTick = AssetsToProcessPerTick.GetValueOnGameThread();
+	DumpSettings.bForceSingleThread = true;
+	
 	DumpSettings.bExitOnFinish = true;
+	
+	FPaths::NormalizeDirectoryName(DumpSettings.RootDumpDirectory);
+	
 	FAssetDumpProcessor::StartAssetDump(DumpSettings, AssetData);
-	Ar.Log(TEXT("Asset dump started successfully, game will shutdown on finish"));
+	UE_LOG(LogAssetDumper, Log, TEXT("Asset dump started successfully, game will shutdown on finish"));
 }
 
-void PrintUnknownAssetClasses(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar) {
+
+void DumpAllGameAssets(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar) {
+	Ar.Log(TEXT("Starting console-driven asset dumping, dumping all assets"));
+	FAssetDumperCommands::DumpAllGameAssets();
+}
+
+void FAssetDumperCommands::FindUnknownAssetClasses(TArray<FName>& OutUnknownAssetClasses) {
 	TArray<FName> SupportedClasses;
 	for (UAssetTypeSerializer* Serializer : UAssetTypeSerializer::GetAvailableAssetSerializers()) {
 		SupportedClasses.Add(Serializer->GetAssetClass());
 		Serializer->GetAdditionallyHandledAssetClasses(SupportedClasses);
 	}
+	FSelectedAssetsStruct::FindUnknownAssetClasses(SupportedClasses, OutUnknownAssetClasses);
+}
 
+void PrintUnknownAssetClasses(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar) {
 	TArray<FName> UnknownAssetClasses;
-	FSelectedAssetsStruct::FindUnknownAssetClasses(SupportedClasses, UnknownAssetClasses);
+	FAssetDumperCommands::FindUnknownAssetClasses(UnknownAssetClasses);
+	
 	if (UnknownAssetClasses.Num() > 0) {
 		Ar.Log(TEXT("Unknown asset classes in asset registry: "));
 		for (const FName& AssetClass : UnknownAssetClasses) {
@@ -70,33 +94,34 @@ void PrintUnknownAssetClasses(const TArray<FString>& Args, UWorld* World, FOutpu
 	}
 }
 
-void SearchAllAssets() {
+void FAssetDumperCommands::RescanAssetsOnDisk() {
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 	AssetRegistry.SearchAllAssets(true);
+	UE_LOG(LogAssetDumper, Log, TEXT("Asset registry has been synchronized with the assets on disk"));
 }
  
 static FAutoConsoleCommand OpenAssetDumperCommand(
-	TEXT("OpenAssetDumper"),
+	TEXT("dumper.OpenAssetDumper"),
 	TEXT("Opens an asset dumper GUI"),
-	FConsoleCommandDelegate::CreateStatic(&OpenAssetDumperUI));
+	FConsoleCommandDelegate::CreateStatic(&FAssetDumperCommands::OpenAssetDumperUI));
 
 static FAutoConsoleCommand OpenAssetDumperConsoleCommand(
-	TEXT("OpenAssetDumperConsole"),
+	TEXT("dumper.OpenAssetDumperConsole"),
 	TEXT("Opens an asset dumper console for the active dumping process"),
-	FConsoleCommandDelegate::CreateStatic(&OpenAssetDumperProgressConsole));
+	FConsoleCommandDelegate::CreateStatic(&FAssetDumperCommands::OpenAssetDumperProgressConsole));
 
 static FAutoConsoleCommand ScanPathsForAssetsSynchronously(
-	TEXT("SearchAllAssets"),
-	TEXT("Searches for new assets on the disk"),
-	FConsoleCommandDelegate::CreateStatic(&SearchAllAssets));
+	TEXT("dumper.RescanAssetsOnDisk"),
+	TEXT("Synchronizes asset registry state with the state of the assets on the disk"),
+	FConsoleCommandDelegate::CreateStatic(&FAssetDumperCommands::RescanAssetsOnDisk));
 
 static FAutoConsoleCommand DumpAllGameAssetsCommand(
-	TEXT("DumpAllGameAssets"),
+	TEXT("dumper.DumpAllGameAssets"),
 	TEXT("Dumps all assets existing in the game, for all supported asset types"),
 	FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateStatic(&DumpAllGameAssets));
 
 static FAutoConsoleCommand PrintUnknownAssetClassesCommand(
-	TEXT("PrintUnknownAssetClasses"),
+	TEXT("dumper.PrintUnknownAssetClasses"),
 	TEXT("Prints a list of all unknown asset classes"),
 	FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateStatic(&PrintUnknownAssetClasses));

@@ -2,14 +2,11 @@
 #include "CoreMinimal.h"
 #include "Tickable.h"
 #include "AssetData.h"
-
-DECLARE_LOG_CATEGORY_EXTERN(LogAssetDumper, All, All);
+#include "AssetDumperModule.h"
 
 /** Holds asset dumping related settings */
 struct ASSETDUMPER_API FAssetDumpSettings {
 	FString RootDumpDirectory;
-	int32 MaxLoadRequestsInFly;
-	int32 MaxPackagesInProcessQueue;
 	int32 MaxPackagesToProcessInOneTick;
 	bool bForceSingleThread;
 	bool bOverwriteExistingAssets;
@@ -18,6 +15,9 @@ struct ASSETDUMPER_API FAssetDumpSettings {
 
 	/** Default settings for asset dumping */
 	FAssetDumpSettings();
+
+	/** Returns the default directory for asset dumping */
+	static FString GetDefaultRootDumpDirectory();
 };
 
 struct FPendingPackageData {
@@ -53,6 +53,10 @@ private:
 	FAssetDumpSettings Settings;
 	bool bHasFinishedDumping;
 	float TimeSinceGarbageCollection;
+
+	int32 MaxLoadRequestsInFly;
+	int32 MaxPackagesInProcessQueue;
+	int32 MaxPackagesToProcessInOneTick;
 	
 	explicit FAssetDumpProcessor(const FAssetDumpSettings& Settings, const TArray<FAssetData>& InAssets);
 	explicit FAssetDumpProcessor(const FAssetDumpSettings& Settings, const TMap<FName, FAssetData>& InAssets);
