@@ -1,5 +1,6 @@
 #include "AssetDumperModule.h"
 #include "Toolkit/AssetDumping/AssetDumperCommands.h"
+#include "Toolkit/NativeClassDumping/NativeClassDumperCommands.h"
 
 #if METHOD_PATCHING_SUPPORTED
 #include "Patching/NativeHookManager.h"
@@ -19,6 +20,8 @@ void FAssetDumperModule::StartupModule() {
 		UE_LOG(LogAssetDumper, Log, TEXT("Game asset dump required through the command line. Game will dump the assets and exit"));
 		FAssetDumperCommands::DumpAllGameAssets(FCommandLine::Get());
 	}
+
+	FNativeClassDumperCommands::ProcessCommandLineArguments();
 }
 
 void FAssetDumperModule::ShutdownModule() {
