@@ -10,7 +10,7 @@ public:
 	static void OpenAssetDumperProgressConsole();
 
 	/** Dumps all of the game assets into the specified output directory */
-	static void DumpAllGameAssets();
+	static void DumpAllGameAssets(const FString& Params);
 
 	/** Retrieves a list of classes not supported by the asset dumper */
 	static void FindUnknownAssetClasses(TArray<FName>& OutUnknownAssetClasses);

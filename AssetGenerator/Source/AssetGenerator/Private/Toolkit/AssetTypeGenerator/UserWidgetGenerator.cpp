@@ -108,7 +108,7 @@ FName UUserWidgetGenerator::GetAssetClass() {
 	return TEXT("WidgetBlueprint");
 }
 
-void UUserWidgetGenerator::PopulateStageDependencies(TArray<FAssetDependency>& AssetDependencies) const {
+void UUserWidgetGenerator::PopulateStageDependencies(TArray<FPackageDependency>& AssetDependencies) const {
 	Super::PopulateStageDependencies(AssetDependencies);
 
 	if (GetCurrentStage() == EAssetGenerationStage::CDO_FINALIZATION) {
@@ -124,7 +124,7 @@ void UUserWidgetGenerator::PopulateStageDependencies(TArray<FAssetDependency>& A
 		}
 
 		for (const FString& PackageName : AdditionalWidgetDependencies) {
-			AssetDependencies.Add(FAssetDependency{*PackageName, EAssetGenerationStage::CDO_FINALIZATION});
+			AssetDependencies.Add(FPackageDependency{*PackageName, EAssetGenerationStage::CDO_FINALIZATION});
 		}
 	}
 }

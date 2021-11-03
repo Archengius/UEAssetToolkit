@@ -136,7 +136,7 @@ protected:
 	static void RemoveMaterialComment(UMaterial* Material, UMaterialExpressionComment* Comment);
 	static bool IsMaterialQualityNodeUsed(const FMaterialCachedExpressionData& Data);
 public:
-	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const override;
+	virtual void PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const override;
 	virtual FName GetAssetClass() override;
 	static FVector2D GetGoodPlaceForNewMaterialExpression(UMaterial* Material);
 	static void ForceMaterialCompilation(UMaterial* Material);

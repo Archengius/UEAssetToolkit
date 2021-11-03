@@ -8,14 +8,6 @@
 
 #define LOCTEXT_NAMESPACE "AssetDumper"
 
-static TAutoConsoleVariable<int32> AssetsToProcessPerTick(
-	TEXT("dumper.AssetsToProcessPerTick"), 16,
-	TEXT("Amount of assets to process per tick in automatic asset dumping using the console command or command line switch"));
-
-static TAutoConsoleVariable<bool> ForceSingleThreaded(
-	TEXT("dumper.ForceSingleThreaded"), true,
-	TEXT("Whenever to force a single-threaded dumping in automatic mode using the console command or command line switch"));
-
 void FAssetDumperCommands::OpenAssetDumperUI() {
 	TSharedRef<SWindow> Window = SNew(SWindow)
 						.Title(LOCTEXT("AssetDumper_Title", "Asset Dumper Settings"))
@@ -34,30 +26,80 @@ void FAssetDumperCommands::OpenAssetDumperProgressConsole() {
 	}
 }
 
-void FAssetDumperCommands::DumpAllGameAssets() {
+void FAssetDumperCommands::DumpAllGameAssets(const FString& Params) {
 	const TSharedRef<FSelectedAssetsStruct> SelectedAssetsStruct(new FSelectedAssetsStruct);
 
-	SelectedAssetsStruct->AddIncludedPackagePath(TEXT("/"));
-	for (UAssetTypeSerializer* Serializer : UAssetTypeSerializer::GetAvailableAssetSerializers()) {
-		SelectedAssetsStruct->AddAssetClassWhitelist(Serializer->GetAssetClass());
-		TArray<FName> AdditionalClassNames;
-		Serializer->GetAdditionallyHandledAssetClasses(AdditionalClassNames);
-		for (const FName& AssetClass : AdditionalClassNames) {
-			SelectedAssetsStruct->AddAssetClassWhitelist(AssetClass);
+	FString RootAssetPath = TEXT("/Game");
+	FParse::Value(*Params, TEXT("RootAssetPath="), RootAssetPath);
+	SelectedAssetsStruct->AddIncludedPackagePath(RootAssetPath);
+
+	{
+		FString ExcludedPackagePaths;
+		if (FParse::Value(*Params, TEXT("ExcludePackagePaths="), ExcludedPackagePaths)) {
+			TArray<FString> ExcludedPackagePathsArray;
+			ExcludedPackagePaths.ParseIntoArray(ExcludedPackagePathsArray, TEXT(","));
+
+			for (const FString& PackagePath : ExcludedPackagePathsArray) {
+				SelectedAssetsStruct->AddExcludedPackagePath(PackagePath);
+			}
 		}
 	}
 
-	UE_LOG(LogAssetDumper, Log, TEXT("Gathering asset data under / path, this may take a while..."));
+	{
+		FString ExcludedPackageNames;
+		if (FParse::Value(*Params, TEXT("ExcludePackageNames="), ExcludedPackageNames)) {
+			TArray<FString> ExcludedPackageNamesArray;
+			ExcludedPackageNames.ParseIntoArray(ExcludedPackageNamesArray, TEXT(","));
+
+			for (const FString& PackagePath : ExcludedPackageNamesArray) {
+				SelectedAssetsStruct->AddExcludedPackageName(PackagePath);
+			}
+		}
+	}
+
+	TArray<FName> AssetClassWhitelist;
+	
+	for (UAssetTypeSerializer* Serializer : UAssetTypeSerializer::GetAvailableAssetSerializers()) {
+		AssetClassWhitelist.Add(Serializer->GetAssetClass());
+		Serializer->GetAdditionallyHandledAssetClasses(AssetClassWhitelist);
+	}
+
+	{
+		FString UserDefinedAssetClassWhitelist;
+		if (FParse::Value(*Params, TEXT("AssetClassWhitelist="), UserDefinedAssetClassWhitelist)) {
+			TArray<FString> NewClassWhitelist;
+			UserDefinedAssetClassWhitelist.ParseIntoArray(NewClassWhitelist, TEXT(","));
+
+			AssetClassWhitelist.Empty();
+			for (const FString& AssetClass : NewClassWhitelist) {
+				AssetClassWhitelist.Add(*AssetClass);
+			}
+		}
+	}
+
+	for (const FName& AssetClass : AssetClassWhitelist) {
+		SelectedAssetsStruct->AddAssetClassWhitelist(AssetClass);
+	}
+
+	
+	FAssetDumpSettings DumpSettings{};
+	FParse::Value(*Params, TEXT("PackagesPerTick="), DumpSettings.MaxPackagesToProcessInOneTick);
+	DumpSettings.bForceSingleThread = !FParse::Param(*Params, TEXT("MultiThreaded"));
+	DumpSettings.bExitOnFinish = FParse::Param(*Params, TEXT("ExitOnFinish"));
+
+	{
+		FString OverrideDumpRootPath;
+		if (FParse::Value(*Params, TEXT("AssetDumpRootPath="), OverrideDumpRootPath)) {
+			FPaths::NormalizeDirectoryName(OverrideDumpRootPath);
+			DumpSettings.RootDumpDirectory = OverrideDumpRootPath;
+		}
+	}
+
+	UE_LOG(LogAssetDumper, Log, TEXT("Gathering asset data under the path, this may take a while..."));
 	SelectedAssetsStruct->GatherAssetsData();
 
 	const TMap<FName, FAssetData>& AssetData = SelectedAssetsStruct->GetGatheredAssets();
 	UE_LOG(LogAssetDumper, Log, TEXT("Asset data gathered successfully! Gathered %d assets for dumping"), AssetData.Num());
-
-	FAssetDumpSettings DumpSettings{};
-	DumpSettings.MaxPackagesToProcessInOneTick = AssetsToProcessPerTick.GetValueOnGameThread();
-	DumpSettings.bForceSingleThread = true;
-	
-	DumpSettings.bExitOnFinish = true;
 	
 	FPaths::NormalizeDirectoryName(DumpSettings.RootDumpDirectory);
 	
@@ -65,10 +107,9 @@ void FAssetDumperCommands::DumpAllGameAssets() {
 	UE_LOG(LogAssetDumper, Log, TEXT("Asset dump started successfully, game will shutdown on finish"));
 }
 
-
 void DumpAllGameAssets(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar) {
 	Ar.Log(TEXT("Starting console-driven asset dumping, dumping all assets"));
-	FAssetDumperCommands::DumpAllGameAssets();
+	FAssetDumperCommands::DumpAllGameAssets(FString::Join(Args, TEXT(" ")));
 }
 
 void FAssetDumperCommands::FindUnknownAssetClasses(TArray<FName>& OutUnknownAssetClasses) {

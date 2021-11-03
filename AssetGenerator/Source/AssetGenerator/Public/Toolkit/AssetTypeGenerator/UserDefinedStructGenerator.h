@@ -12,6 +12,6 @@ protected:
 	bool IsStructUpToDate(class UUserDefinedStruct* Struct) const;
 	virtual void FinalizeAssetCDO() override;
 public:
-	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const override;
+	virtual void PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const override;
 	virtual FName GetAssetClass() override;
 };

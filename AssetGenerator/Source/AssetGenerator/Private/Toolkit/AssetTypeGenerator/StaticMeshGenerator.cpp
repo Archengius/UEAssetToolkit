@@ -197,7 +197,7 @@ bool UStaticMeshGenerator::IsStaticMeshSourceFileUpToDate(UStaticMesh* Asset) co
 	return ExistingFileHashString == ModelFileHash;
 }
 
-void UStaticMeshGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void UStaticMeshGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		const TSharedPtr<FJsonObject> AssetData = GetAssetData();
 		
@@ -220,7 +220,7 @@ void UStaticMeshGenerator::PopulateStageDependencies(TArray<FAssetDependency>& O
 		}
 		
 		for (const FString& DependencyPackageName : OutReferencedPackages) {
-			OutDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
+			OutDependencies.Add(FPackageDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
 		}
 	}
 }

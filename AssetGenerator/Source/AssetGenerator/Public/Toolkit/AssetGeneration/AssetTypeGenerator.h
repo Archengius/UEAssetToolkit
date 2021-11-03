@@ -18,7 +18,7 @@ enum class EAssetGenerationStage {
 };
 
 /** Describes a single asset package dependency to be satisfied */
-struct ASSETGENERATOR_API FAssetDependency {
+struct ASSETGENERATOR_API FPackageDependency {
 	const FName PackageName;
 	const EAssetGenerationStage State;
 };
@@ -73,14 +73,14 @@ protected:
 	FORCEINLINE bool IsGeneratingPublicProject() const { return bIsGeneratingPublicProject; }
 
 	/** Marks asset as changed by this generator */
-	FORCEINLINE void MarkAssetChanged() { this->bAssetChanged = true; }
+	void MarkAssetChanged();
 
 	void SetPackageAndAsset(UPackage* NewPackage, UObject* NewAsset, bool bSetObjectMark = true);
 
 	FString GetAdditionalDumpFilePath(const FString& Postfix, const FString& Extension) const;
 
 	/** Adds assets referenced by the asset object through referenced objects */
-	void PopulateReferencedObjectsDependencies(TArray<FAssetDependency>& OutDependencies) const;
+	void PopulateReferencedObjectsDependencies(TArray<FPackageDependency>& OutDependencies) const;
 
 	/** Called right after asset generator is initialized with asset data */
 	virtual void PostInitializeAssetGenerator() {}
@@ -124,7 +124,7 @@ public:
 	FORCEINLINE T* GetAsset() const { return CastChecked<T>(AssetObject); }
 
 	/** Populates array with the dependencies required to perform current asset generation stage */
-	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {}
+	virtual void PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {}
 
 	/** Attempts to advance asset generation stage. Returns new stage, or finished if generation is finished */
 	FGeneratorStateAdvanceResult AdvanceGenerationState();

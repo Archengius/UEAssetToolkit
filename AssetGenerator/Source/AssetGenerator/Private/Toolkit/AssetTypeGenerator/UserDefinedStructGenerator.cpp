@@ -151,7 +151,7 @@ void UUserDefinedStructGenerator::FinalizeAssetCDO() {
 	}
 }
 
-void UUserDefinedStructGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void UUserDefinedStructGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		const TArray<TSharedPtr<FJsonValue>>& ChildProperties = GetAssetData()->GetArrayField(TEXT("ChildProperties"));
 
@@ -162,7 +162,7 @@ void UUserDefinedStructGenerator::PopulateStageDependencies(TArray<FAssetDepende
 		}
 
 		for (const FString& DependencyName : AllDependencyNames) {
-			OutDependencies.Add(FAssetDependency{FName(*DependencyName), EAssetGenerationStage::CONSTRUCTION});
+			OutDependencies.Add(FPackageDependency{FName(*DependencyName), EAssetGenerationStage::CONSTRUCTION});
 		}
 
 	} else if (GetCurrentStage() == EAssetGenerationStage::CDO_FINALIZATION) {
@@ -172,7 +172,7 @@ void UUserDefinedStructGenerator::PopulateStageDependencies(TArray<FAssetDepende
 		GetObjectSerializer()->CollectReferencedPackages(ReferencedObjects, OutReferencedPackages);
 
 		for (const FString& DependencyPackageName : OutReferencedPackages) {
-			OutDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
+			OutDependencies.Add(FPackageDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
 		}
 	}
 }

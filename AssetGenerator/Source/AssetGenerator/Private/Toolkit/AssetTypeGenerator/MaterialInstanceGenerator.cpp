@@ -49,7 +49,7 @@ FStaticParameterSet UMaterialInstanceGenerator::GetStaticParameterOverrides() co
 	return StaticParameterOverrides;
 }
 
-void UMaterialInstanceGenerator::PopulateStageDependencies(TArray<FAssetDependency>& AssetDependencies) const {
+void UMaterialInstanceGenerator::PopulateStageDependencies(TArray<FPackageDependency>& AssetDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		const TSharedPtr<FJsonObject> AssetData = GetAssetData();
 		const TSharedPtr<FJsonObject> AssetObjectProperties = AssetData->GetObjectField(TEXT("AssetObjectData"));
@@ -72,7 +72,7 @@ void UMaterialInstanceGenerator::PopulateStageDependencies(TArray<FAssetDependen
 		}
 
 		for (const FString& DependencyPackageName : ReferencedPackages) {
-			AssetDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
+			AssetDependencies.Add(FPackageDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
 		}
 	}
 	
@@ -88,7 +88,7 @@ void UMaterialInstanceGenerator::PopulateStageDependencies(TArray<FAssetDependen
 			GetObjectSerializer()->CollectObjectPackages(ObjectIndex, ReferencedPackages);
 		}
 		for (const FString& PackageName : ReferencedPackages) {
-			AssetDependencies.Add(FAssetDependency{*PackageName, EAssetGenerationStage::CDO_FINALIZATION});	
+			AssetDependencies.Add(FPackageDependency{*PackageName, EAssetGenerationStage::CDO_FINALIZATION});	
 		}
 	}
 }

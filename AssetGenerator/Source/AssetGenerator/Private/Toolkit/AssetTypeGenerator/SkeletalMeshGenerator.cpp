@@ -190,7 +190,7 @@ bool USkeletalMeshGenerator::IsSkeletalMeshSourceFileUpToDate(USkeletalMesh* Ass
 	return ExistingFileHashString == ModelFileHash;
 }
 
-void USkeletalMeshGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void USkeletalMeshGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		const TSharedPtr<FJsonObject> AssetData = GetAssetData();
 		
@@ -214,7 +214,7 @@ void USkeletalMeshGenerator::PopulateStageDependencies(TArray<FAssetDependency>&
 		}
 		
 		for (const FString& DependencyPackageName : OutReferencedPackages) {
-			OutDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
+			OutDependencies.Add(FPackageDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
 		}
 	}
 }

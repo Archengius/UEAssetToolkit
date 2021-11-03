@@ -115,7 +115,7 @@ bool UAnimSequenceGenerator::IsAnimationSourceUpToDate(UAnimSequence* Asset) con
 	return ExistingFileHashString == ModelFileHash;
 }
 
-void UAnimSequenceGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void UAnimSequenceGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		PopulateReferencedObjectsDependencies(OutDependencies);
 	}

@@ -179,7 +179,7 @@ bool UMaterialGenerator::IsMaterialUpToDate(UMaterial* Asset, FMaterialLayoutCha
 	return MaterialLayoutChangeInfo.IsEmpty();
 }
 
-void UMaterialGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void UMaterialGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		PopulateReferencedObjectsDependencies(OutDependencies);
 	}

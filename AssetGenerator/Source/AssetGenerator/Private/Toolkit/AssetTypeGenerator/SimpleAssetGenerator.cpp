@@ -35,7 +35,7 @@ bool USimpleAssetGenerator::IsSimpleAssetUpToDate(UObject* Asset) const {
 	return GetObjectSerializer()->AreObjectPropertiesUpToDate(AssetObjectProperties.ToSharedRef(), Asset);
 }
 
-void USimpleAssetGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void USimpleAssetGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		PopulateReferencedObjectsDependencies(OutDependencies);
 	}

@@ -68,6 +68,7 @@ void UDataTableGenerator::PopulateDataTableWithData(UDataTable* DataTable, const
 		const FTableRowBase* TableRowBase = (const FTableRowBase*) StructValue->GetStructMemory();
 		DataTable->AddRow(Pair.Key, *TableRowBase);
 	}
+	MarkAssetChanged();
 }
 
 bool UDataTableGenerator::IsDataTableUpToDate(UDataTable* DataTable, const FTableRowMap& TableRowMap) const {
@@ -95,14 +96,14 @@ bool UDataTableGenerator::IsDataTableUpToDate(UDataTable* DataTable, const FTabl
 	return true;
 }
 
-void UDataTableGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void UDataTableGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		TArray<FString> OutReferencedPackages;
 		const int32 RowStructObjectIndex = GetAssetData()->GetIntegerField(TEXT("RowStruct"));
 		GetObjectSerializer()->CollectObjectPackages(RowStructObjectIndex, OutReferencedPackages);
 
 		for (const FString& DependencyPackageName : OutReferencedPackages) {
-			OutDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
+			OutDependencies.Add(FPackageDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
 		}
 	}
 	if (GetCurrentStage() == EAssetGenerationStage::DATA_POPULATION) {
@@ -112,7 +113,7 @@ void UDataTableGenerator::PopulateStageDependencies(TArray<FAssetDependency>& Ou
 		GetObjectSerializer()->CollectReferencedPackages(ReferencedObjects, OutReferencedPackages);
 		
 		for (const FString& DependencyPackageName : OutReferencedPackages) {
-			OutDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
+			OutDependencies.Add(FPackageDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
 		}
 	}
 }

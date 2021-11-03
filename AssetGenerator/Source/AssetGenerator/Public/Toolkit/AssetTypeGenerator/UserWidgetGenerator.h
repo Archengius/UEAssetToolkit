@@ -15,5 +15,5 @@ protected:
 	virtual UClass* GetFallbackParentClass() const override;
 public:
 	virtual FName GetAssetClass() override;
-	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const override;
+	virtual void PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const override;
 };

@@ -48,6 +48,9 @@ public:
 
 	/** Appends selected package names to the package list */
 	void PopulateGeneratedPackages(TArray<FName>& OutPackageNames, const TSet<FName>* WhitelistedAssetClasses = NULL);
+
+	/** Creates a root node for the asset tree */
+	static TSharedPtr<FAssetDumpTreeNode> CreateRootTreeNode(const FString& DumpDirectory);
 };
 
 class ASSETGENERATOR_API SAssetDumpViewWidget : public SCompoundWidget {

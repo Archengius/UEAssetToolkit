@@ -9,13 +9,13 @@ TSharedPtr<FAssetGenerationProcessor> FAssetGenerationProcessor::ActiveAssetGene
 void FAssetGenerationProcessor::RefreshGeneratorDependencies(UAssetTypeGenerator* Generator) {
 	//Populate package dependencies
 	const FName PackageName = Generator->GetPackageName();
-	TArray<FAssetDependency> GeneratorDependencies;
+	TArray<FPackageDependency> GeneratorDependencies;
 	Generator->PopulateStageDependencies(GeneratorDependencies);
 	
 	//Generate a flat list of the asset dependencies, preferring later stage dependency when multiple are present
 	TMap<FName, EAssetGenerationStage> CompactedFlatDependencies;
 	
-	for (const FAssetDependency& Dependency : GeneratorDependencies) {
+	for (const FPackageDependency& Dependency : GeneratorDependencies) {
 		const EAssetGenerationStage* ExistingStage = CompactedFlatDependencies.Find(Dependency.PackageName);
 		
 		if (ExistingStage != NULL) {
@@ -127,7 +127,8 @@ FAssetGeneratorConfiguration::FAssetGeneratorConfiguration() :
 		DumpRootDirectory(FPaths::ProjectDir() + TEXT("AssetDump/")),
 		MaxAssetsToAdvancePerTick(4),
 		bRefreshExistingAssets(true),
-		bGeneratePublicProject(false) {
+		bGeneratePublicProject(false),
+		bTickOnTheSide(false) {
 }
 
 FAssetGenStatistics::FAssetGenStatistics() {
@@ -264,7 +265,7 @@ bool FAssetGenerationProcessor::GatherNewAssetsForGeneration() {
 	return AssetsAddedThisTick > 0;
 }
 
-void FAssetGenerationProcessor::TickAssetGeneration() {
+void FAssetGenerationProcessor::TickAssetGeneration(int32& PackagesGeneratedThisTick) {
 	//If we have nothing to advance, but have asset generators waiting, we are definitely in a cyclic dependencies loop
 	//Log our full state for debugging purposes and crash
 	if (GeneratorsReadyToAdvance.Num() == 0 && AssetGenerators.Num() != 0) {
@@ -299,6 +300,7 @@ void FAssetGenerationProcessor::TickAssetGeneration() {
 	}
 	//Remove generators that we have already advanced
 	GeneratorsReadyToAdvance.RemoveAt(0, GeneratorsActuallyProcessed);
+	PackagesGeneratedThisTick = GeneratorsActuallyProcessed;
 
 	//Update notification item if it's visible
 	UpdateNotificationItem();
@@ -343,21 +345,22 @@ void FAssetGenerationProcessor::OnAssetGenerationFinished() {
 }
 
 void FAssetGenerationProcessor::UpdateNotificationItem() {
+	const int32 PackagesGenerated = Statistics.GetTotalPackagesHandled();
+	const int32 TotalPackages = Statistics.TotalAssetPackages;
+	
+	UE_LOG(LogAssetGenerator, Display, TEXT("Generated packages %d Packages UpToDate %d Total %d"), PackagesGenerated, Statistics.AssetPackagesUpToDate, TotalPackages);
 	if (NotificationItem.IsValid()) {
 		FFormatNamedArguments Arguments;
-		const int32 PackagesGenerated = Statistics.GetTotalPackagesHandled();
-		const int32 TotalPackages = Statistics.TotalAssetPackages;
 		
 		Arguments.Add(TEXT("PackagesGenerated"), PackagesGenerated);
 		Arguments.Add(TEXT("TotalPackages"), TotalPackages);
 		Arguments.Add(TEXT("PackagesUpToDate"), Statistics.AssetPackagesUpToDate);
 		Arguments.Add(TEXT("PackagesSkipped"), Statistics.AssetPackagesSkipped);
 		Arguments.Add(TEXT("PackagesInProgress"), AssetGenerators.Num());
-		Arguments.Add(TEXT("ProgressPercent"), FMath::RoundToInt(PackagesGenerated / (TotalPackages * 1.0f) * 100.0f));
 
 		NotificationItem->SetText(FText::Format(LOCTEXT("AssetGenerator_Progress",
-			"Asset Generation In Progress: {PackagesGenerated}/{TotalPackages} packages, {PackagesUpToDate} up-to-date, {PackagesSkipped} skipped, "
-			"{ProgressPercent}% done, {PackagesInProgress} generating currently"), Arguments));
+			"Asset Generation: {PackagesGenerated} Generated, {TotalPackages} Total, {PackagesUpToDate} UpToDate, {PackagesSkipped} Skipped, "
+			"{PackagesInProgress} Generating Currently"), Arguments));
 	}
 }
 
@@ -443,17 +446,25 @@ TSharedRef<FAssetGenerationProcessor> FAssetGenerationProcessor::CreateAssetGene
 	return ActiveAssetGenerator.ToSharedRef();
 }
 
-void FAssetGenerationProcessor::Tick(float DeltaTime) {
+void FAssetGenerationProcessor::TickOnTheSide(int32& PackagesGeneratedThisTick) {
+	PackagesGeneratedThisTick = 0;
 	if (bIsFirstTick) {
 		OnAssetGenerationStarted();
 		this->bIsFirstTick = false;
 	}
 	if (!bGenerationFinished) {
-		TickAssetGeneration();
+		TickAssetGeneration(PackagesGeneratedThisTick);
 	} else {
 		if (ActiveAssetGenerator == SharedThis(this)) {
 			this->ActiveAssetGenerator.Reset();
 		}
+	}
+}
+
+void FAssetGenerationProcessor::Tick(float DeltaTime) {
+	if (!Configuration.bTickOnTheSide) {
+		int32 PackagesGeneratedThisTick;
+		TickOnTheSide(PackagesGeneratedThisTick);
 	}
 }
 

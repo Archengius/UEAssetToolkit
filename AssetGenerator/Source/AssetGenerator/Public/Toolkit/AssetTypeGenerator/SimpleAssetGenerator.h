@@ -14,5 +14,5 @@ protected:
 	virtual void PopulateSimpleAssetWithData(UObject* Asset);
 	virtual bool IsSimpleAssetUpToDate(UObject* Asset) const;
 public:
-	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const override;
+	virtual void PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const override;
 };

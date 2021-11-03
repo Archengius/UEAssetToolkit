@@ -236,7 +236,7 @@ UClass* UBlueprintGenerator::GetFallbackParentClass() const {
 	return AActor::StaticClass();
 }
 
-void UBlueprintGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void UBlueprintGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		//For construction we want parent class to be FULLY generated
 		TArray<FString> ReferencedPackages;
@@ -254,7 +254,7 @@ void UBlueprintGenerator::PopulateStageDependencies(TArray<FAssetDependency>& Ou
 		}
 
 		for (const FString& PackageName : ReferencedPackages) {
-			OutDependencies.Add(FAssetDependency{*PackageName, EAssetGenerationStage::CDO_FINALIZATION});
+			OutDependencies.Add(FPackageDependency{*PackageName, EAssetGenerationStage::CDO_FINALIZATION});
 		}
 	}
 	
@@ -288,7 +288,7 @@ void UBlueprintGenerator::PopulateStageDependencies(TArray<FAssetDependency>& Ou
 			}
 		}
 		for (const FString& PackageName : AllDependencyNames) {
-			OutDependencies.Add(FAssetDependency{*PackageName, EAssetGenerationStage::CONSTRUCTION});
+			OutDependencies.Add(FPackageDependency{*PackageName, EAssetGenerationStage::CONSTRUCTION});
 		}
 	}
 
@@ -302,7 +302,7 @@ void UBlueprintGenerator::PopulateStageDependencies(TArray<FAssetDependency>& Ou
 		GetObjectSerializer()->CollectObjectPackages(SCSIndex, AllDependencyNames);
 		
 		for (const FString& PackageName : AllDependencyNames) {
-        	OutDependencies.Add(FAssetDependency{*PackageName, EAssetGenerationStage::CONSTRUCTION});
+        	OutDependencies.Add(FPackageDependency{*PackageName, EAssetGenerationStage::CONSTRUCTION});
         }
 	}
 }

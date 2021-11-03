@@ -197,6 +197,18 @@ void FAssetDumpTreeNode::PopulateGeneratedPackages(TArray<FName>& OutPackageName
 	}
 }
 
+TSharedPtr<FAssetDumpTreeNode> FAssetDumpTreeNode::CreateRootTreeNode(const FString& DumpDirectory) {
+	const TSharedPtr<FAssetDumpTreeNode> RootNode = MakeShareable(new FAssetDumpTreeNode);
+	
+	RootNode->bIsLeafNode = false;
+	RootNode->RootDirectory = DumpDirectory;
+	RootNode->DiskPackagePath = RootNode->RootDirectory;
+	RootNode->SetupPackageNameFromDiskPath();
+	RootNode->UpdateSelectedState(true, false);
+
+	return RootNode;
+}
+
 void SAssetDumpViewWidget::Construct(const FArguments& InArgs) {
 	ChildSlot[
         SAssignNew(TreeView, STreeView<TSharedPtr<FAssetDumpTreeNode>>)
@@ -222,13 +234,7 @@ void SAssetDumpViewWidget::Construct(const FArguments& InArgs) {
 }
 
 void SAssetDumpViewWidget::SetAssetDumpRootDirectory(const FString& RootDirectory) {
-	this->RootNode = MakeShareable(new FAssetDumpTreeNode);
-	this->RootNode->bIsLeafNode = false;
-	this->RootNode->RootDirectory = RootDirectory;
-	this->RootNode->DiskPackagePath = RootDirectory;
-	this->RootNode->SetupPackageNameFromDiskPath();
-	this->RootNode->UpdateSelectedState(true, false);
-
+	this->RootNode = FAssetDumpTreeNode::CreateRootTreeNode(RootDirectory);
 	this->RootAssetPaths.Empty();
 	this->RootNode->GetChildrenNodes(RootAssetPaths);
 	this->TreeView->RequestTreeRefresh();

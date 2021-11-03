@@ -40,7 +40,7 @@ void UFontGenerator::OnExistingPackageLoaded() {
 	}
 }
 
-void UFontGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void UFontGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		const TSharedPtr<FJsonObject> AssetData = GetAssetData();
 
@@ -48,7 +48,7 @@ void UFontGenerator::PopulateStageDependencies(TArray<FAssetDependency>& OutDepe
 			
 			const TArray<TSharedPtr<FJsonValue>> Dependencies = AssetData->GetArrayField(TEXT("ReferencedFontFacePackages"));	
 			for (const TSharedPtr<FJsonValue>& Value : Dependencies) {
-				OutDependencies.Add(FAssetDependency{*Value->AsString(), EAssetGenerationStage::CONSTRUCTION});
+				OutDependencies.Add(FPackageDependency{*Value->AsString(), EAssetGenerationStage::CONSTRUCTION});
 			}
 		}
 	}

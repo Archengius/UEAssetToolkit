@@ -20,7 +20,7 @@ FString UAssetTypeGenerator::GetAdditionalDumpFilePath(const FString& Postfix, c
 	return FPaths::Combine(PackageBaseDirectory, Filename);
 }
 
-void UAssetTypeGenerator::PopulateReferencedObjectsDependencies(TArray<FAssetDependency>& OutDependencies) const {
+void UAssetTypeGenerator::PopulateReferencedObjectsDependencies(TArray<FPackageDependency>& OutDependencies) const {
 	const TSharedPtr<FJsonObject> AssetData = GetAssetData();
 	const TSharedPtr<FJsonObject> AssetObjectProperties = AssetData->GetObjectField(TEXT("AssetObjectData"));
 	const TArray<TSharedPtr<FJsonValue>> ReferencedObjects = AssetObjectProperties->GetArrayField(TEXT("$ReferencedObjects"));
@@ -29,7 +29,7 @@ void UAssetTypeGenerator::PopulateReferencedObjectsDependencies(TArray<FAssetDep
 	GetObjectSerializer()->CollectReferencedPackages(ReferencedObjects, OutReferencedPackages);
 
 	for (const FString& DependencyPackageName : OutReferencedPackages) {
-		OutDependencies.Add(FAssetDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
+		OutDependencies.Add(FPackageDependency{*DependencyPackageName, EAssetGenerationStage::CDO_FINALIZATION});
 	}
 }
 
@@ -93,6 +93,13 @@ void UAssetTypeGenerator::ConstructAssetAndPackage() {
 	}
 }
 
+void UAssetTypeGenerator::MarkAssetChanged() {
+	this->bAssetChanged = true;
+	if (this->AssetPackage) {
+		this->AssetPackage->MarkPackageDirty();
+	}
+}
+
 void UAssetTypeGenerator::SetPackageAndAsset(UPackage* NewPackage, UObject* NewAsset, bool bSetObjectMark) {
 	checkf(CurrentStage == EAssetGenerationStage::CONSTRUCTION, TEXT("SetPackageAndAsset can only be called during CONSTRUCTION"));
 	checkf(AssetPackage == NULL, TEXT("SetPackageAndAsset can only be called once during CreateAssetPackage"));
@@ -148,13 +155,13 @@ FGeneratorStateAdvanceResult UAssetTypeGenerator::AdvanceGenerationState() {
 	//Increment current generation stage
 	this->CurrentStage = (EAssetGenerationStage) ((int32) CurrentStage + 1);
 	
-	//Force package to be saved to disk if it has been marked dirty at some point before
+	//Force package to be saved to disk if it has been marked as changed, which should have also marked it as dirty
 	if (bAssetChanged) {
 		TArray<UPackage*> PackagesToSave;
 		PackagesToSave.Add(AssetPackage);
 		GetAdditionalPackagesToSave(PackagesToSave);
+		UEditorLoadingAndSavingUtils::SavePackages(PackagesToSave, false);
 		
-		FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, false, false);
 		this->bAssetChanged = false;
 		this->bHasAssetEverBeenChanged = true;
 	}

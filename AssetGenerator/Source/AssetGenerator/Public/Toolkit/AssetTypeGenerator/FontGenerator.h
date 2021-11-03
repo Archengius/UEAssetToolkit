@@ -21,5 +21,5 @@ protected:
 	bool IsFontUpToDate(class UFont* Font, const FFontGlyphData& GlyphData) const;
 public:
 	virtual FName GetAssetClass() override;
-	virtual void PopulateStageDependencies(TArray<FAssetDependency>& OutDependencies) const override;
+	virtual void PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const override;
 };

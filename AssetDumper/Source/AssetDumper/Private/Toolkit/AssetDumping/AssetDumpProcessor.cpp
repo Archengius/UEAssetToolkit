@@ -141,7 +141,7 @@ void FAssetDumpProcessor::Tick(float DeltaTime) {
 		//If we were requested to exit on finish, do it now
 		if (Settings.bExitOnFinish) {
 			UE_LOG(LogAssetDumper, Display, TEXT("Exiting because bExitOnFinish was set to true in asset dumper settings..."));
-			FPlatformMisc::RequestExit(false);
+			RequestEngineExit(TEXT("AssetDumper finished working with bExitOnFinish set"));
 		}
 
 		//If we represent an active dump processor, make sure to reset ourselves once dumping is done
@@ -249,6 +249,5 @@ void FAssetDumpProcessor::InitializeAssetDump() {
 	this->MaxLoadRequestsInFly = Settings.MaxPackagesToProcessInOneTick;
 	this->MaxPackagesInProcessQueue = Settings.MaxPackagesToProcessInOneTick * 2;
 	
-	check(PackagesTotal);
 	UE_LOG(LogAssetDumper, Display, TEXT("Starting asset dump of %d packages..."), PackagesTotal);
 }

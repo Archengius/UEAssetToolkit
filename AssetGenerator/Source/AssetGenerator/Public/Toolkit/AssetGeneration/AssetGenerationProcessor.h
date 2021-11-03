@@ -26,6 +26,8 @@ public:
 	bool bRefreshExistingAssets;
 	/** True to generate public project, with all of the non-redistributable asset files replaced with stubs */
 	bool bGeneratePublicProject;
+	/** If true, ticking will be performed manually by the external code like commandlet, and tickable game object logic will be fully ignored */
+	bool bTickOnTheSide;
 
 	FAssetGeneratorConfiguration();
 };
@@ -119,7 +121,7 @@ private:
 	/** Prints current state of the asset generator into the log */
 	void PrintStateIntoTheLog();
 	/** Ticks asset generation and optionally terminates it when finished */
-	void TickAssetGeneration();
+	void TickAssetGeneration(int32& PackagesGeneratedThisTick);
 	/** Called at the first tick of asset generation, before any work is done */
 	void OnAssetGenerationStarted();
 	/** Updates notification item state if it's valid */
@@ -141,6 +143,9 @@ public:
 	/** Creates asset generator and makes it active. Throws exception if another asset gen is currently active */
 	static TSharedRef<FAssetGenerationProcessor> CreateAssetGenerator(const FAssetGeneratorConfiguration& Configuration, const TArray<FName>& PackagesToGenerate);
 
+	/** Called manually from the commandlet, gives back some information */
+	void TickOnTheSide(int32& PackagesGeneratedThisTick);
+	
 	//Begin FTickableGameObject
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;

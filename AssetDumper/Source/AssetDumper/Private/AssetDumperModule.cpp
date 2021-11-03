@@ -17,7 +17,7 @@ void FAssetDumperModule::StartupModule() {
 
 	if (FParse::Param(FCommandLine::Get(), TEXT("DumpAllGameAssets"))) {
 		UE_LOG(LogAssetDumper, Log, TEXT("Game asset dump required through the command line. Game will dump the assets and exit"));
-		FAssetDumperCommands::DumpAllGameAssets();
+		FAssetDumperCommands::DumpAllGameAssets(FCommandLine::Get());
 	}
 }
 
