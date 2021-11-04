@@ -88,8 +88,14 @@ bool FFallbackStructSerializer::Compare(UScriptStruct* Struct, const TSharedPtr<
 
 UPropertySerializer::UPropertySerializer() {
 	this->FallbackStructSerializer = MakeShared<FFallbackStructSerializer>(this);
-	this->StructSerializers.Add(TBaseStructure<FDateTime>::Get(), MakeShared<FDateTimeSerializer>());
-	this->StructSerializers.Add(TBaseStructure<FTimespan>::Get(), MakeShared<FTimespanSerializer>());
+
+	UScriptStruct* DateTimeStruct = FindObject<UScriptStruct>(NULL, TEXT("/Script/CoreUObject.DateTime"));
+	UScriptStruct* TimespanStruct = FindObject<UScriptStruct>(NULL, TEXT("/Script/CoreUObject.Timespan"));
+	check(DateTimeStruct);
+	check(TimespanStruct);
+	
+	this->StructSerializers.Add(DateTimeStruct, MakeShared<FDateTimeSerializer>());
+	this->StructSerializers.Add(TimespanStruct, MakeShared<FTimespanSerializer>());
 }
 
 void UPropertySerializer::DeserializePropertyValue(FProperty* Property, const TSharedRef<FJsonValue>& JsonValue, void* Value) {
@@ -715,7 +721,7 @@ bool UPropertySerializer::CompareStructs(UScriptStruct* Struct, const TSharedRef
 FStructSerializer* UPropertySerializer::GetStructSerializer(UScriptStruct* Struct) const {
 	check(Struct);
 	TSharedPtr<FStructSerializer> const* StructSerializer = StructSerializers.Find(Struct);
-	return StructSerializer && ensure(StructSerializer->IsValid()) ? StructSerializer->Get() : FallbackStructSerializer;
+	return StructSerializer && ensure(StructSerializer->IsValid()) ? StructSerializer->Get() : FallbackStructSerializer.Get();
 }
 
 PRAGMA_ENABLE_OPTIMIZATION
