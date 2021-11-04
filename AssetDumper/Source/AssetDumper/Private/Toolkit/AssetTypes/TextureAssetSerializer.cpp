@@ -38,16 +38,24 @@ void UTextureAssetSerializer::SerializeTextureData(const FString& ContextString,
 	const int32 NumSlices = PlatformData->GetNumSlices();
     const int32 TextureWidth = FirstMipMap.SizeX;
     const int32 TextureHeight = FirstMipMap.SizeY;
-    check(FirstMipMap.SizeZ == 1);
-
+	const int32 TextureDepth = FirstMipMap.SizeZ;
+	//check(FirstMipMap.SizeZ == 1);
+    
     //Write basic information about texture
     Data->SetNumberField(TEXT("TextureWidth"), TextureWidth);
     Data->SetNumberField(TEXT("TextureHeight"), TextureHeight);
+	Data->SetNumberField(TEXT("TextureDepth"), TextureDepth);
     Data->SetNumberField(TEXT("NumSlices"), NumSlices);
     Data->SetStringField(TEXT("CookedPixelFormat"), PixelFormatName);
 
+	//TODO: Different texture classes give different meanings to SizeZ/NumSlices
+	//For Texture2D, SizeZ=1 and NumSlices=1
+	//For TextureCube, SizeZ=1 and NumSlices=6
+	//For Texture2DArray, SizeZ= NumSlices= NumOfTexturesInArray
+	const int32 NumTexturesInBulkData = NumSlices;
+	
     //When we are operating on one slice only, we can perform some optimizations to avoid unnecessary copying
-    const int32 NumBytesPerSlice = FirstMipMap.BulkData.GetBulkDataSize() / NumSlices;
+    const int32 NumBytesPerSlice = FirstMipMap.BulkData.GetBulkDataSize() / NumTexturesInBulkData;
 
 	//Retrieve a copy of the bulk data and use it for decompression
 	void* RawCompressedDataCopy = NULL;
@@ -58,7 +66,7 @@ void UTextureAssetSerializer::SerializeTextureData(const FString& ContextString,
 	uint8* CurrentCompressedData = (uint8*) RawCompressedDataCopy;
 		
 	//Extract every slice and stitch them into the single texture
-	for (int i = 0; i < NumSlices; i++) {
+	for (int i = 0; i < NumTexturesInBulkData; i++) {
 		FString OutErrorMessage;
         
 		//Append texture data into the output array, which results in texture being stitched vertically
@@ -76,7 +84,7 @@ void UTextureAssetSerializer::SerializeTextureData(const FString& ContextString,
 
     if (bResetAlpha) {
         //Reset alpha if we have been requested to
-        const int32 TotalPixelsWithSlices = TextureWidth * TextureHeight * NumSlices;
+        const int32 TotalPixelsWithSlices = TextureWidth * TextureHeight * NumTexturesInBulkData;
         ClearAlphaFromBGRA8Texture(OutDecompressedData.GetData(), TotalPixelsWithSlices);
     }
 
@@ -90,7 +98,7 @@ void UTextureAssetSerializer::SerializeTextureData(const FString& ContextString,
     TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
 
     //TextureHeight should be multiplied by amount of splices because we basically stack textures vertically by appending data to the end of buffer
-    const int32 ActualTextureHeight = TextureHeight * NumSlices;
+    const int32 ActualTextureHeight = TextureHeight * NumTexturesInBulkData;
     check(ImageWrapper->SetRaw(OutDecompressedData.GetData(), OutDecompressedData.Num(), TextureWidth, ActualTextureHeight, ERGBFormat::BGRA, 8));
     const TArray64<uint8>& PNGResultData = ImageWrapper->GetCompressed();
 
