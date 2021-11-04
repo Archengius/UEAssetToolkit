@@ -34,7 +34,8 @@ public class AssetDumper : ModuleRules
 
         PrivateDependencyModuleNames.AddRange(new[] {
 	        "PhysicsCore",
-	        "RHI"
+	        "RHI", 
+	        "MediaAssets"
         });
         
         if (Target.bBuildEditor) {

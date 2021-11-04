@@ -1,11 +1,96 @@
 #include "Toolkit/PropertySerializer.h"
-
 #include "Toolkit/ObjectHierarchySerializer.h"
 #include "UObject/TextProperty.h"
 
 DECLARE_LOG_CATEGORY_CLASS(LogPropertySerializer, Error, Log);
 
 PRAGMA_DISABLE_OPTIMIZATION
+
+void FDateTimeSerializer::Serialize(UScriptStruct* Struct, const TSharedPtr<FJsonObject> JsonValue, const void* StructData, TArray<int32>* OutReferencedSubobjects) {
+	const FDateTime* DateTime = (const FDateTime*) StructData;
+	JsonValue->SetStringField(TEXT("Ticks"), FString::Printf(TEXT("%llu"), DateTime->GetTicks()));
+}
+
+void FDateTimeSerializer::Deserialize(UScriptStruct* Struct, void* StructData, const TSharedPtr<FJsonObject> JsonValue) {
+	FDateTime* DateTime = (FDateTime*) StructData;
+	const int64 Ticks = FCString::Atoi64(*JsonValue->GetStringField(TEXT("Ticks")));
+	*DateTime = FDateTime(Ticks);
+}
+
+bool FDateTimeSerializer::Compare(UScriptStruct* Struct, const TSharedPtr<FJsonObject> JsonValue, const void* StructData, const TSharedPtr<FObjectCompareContext> Context) {
+	const FDateTime* DateTime = (const FDateTime*) StructData;
+	const int64 Ticks = FCString::Atoi64(*JsonValue->GetStringField(TEXT("Ticks")));
+	return DateTime->GetTicks() == Ticks;
+}
+
+void FTimespanSerializer::Serialize(UScriptStruct* Struct, const TSharedPtr<FJsonObject> JsonValue, const void* StructData, TArray<int32>* OutReferencedSubobjects) {
+	const FTimespan* Timespan = (const FTimespan*) StructData;
+	JsonValue->SetStringField(TEXT("Ticks"), FString::Printf(TEXT("%llu"), Timespan->GetTicks()));
+}
+
+void FTimespanSerializer::Deserialize(UScriptStruct* Struct, void* StructData, const TSharedPtr<FJsonObject> JsonValue) {
+	FTimespan* Timespan = (FTimespan*) StructData;
+	const int64 Ticks = FCString::Atoi64(*JsonValue->GetStringField(TEXT("Ticks")));
+	*Timespan = FTimespan(Ticks);
+}
+
+bool FTimespanSerializer::Compare(UScriptStruct* Struct, const TSharedPtr<FJsonObject> JsonValue, const void* StructData, const TSharedPtr<FObjectCompareContext> Context) {
+	const FTimespan* Timespan = (const FTimespan*) StructData;
+	const int64 Ticks = FCString::Atoi64(*JsonValue->GetStringField(TEXT("Ticks")));
+	return Timespan->GetTicks() == Ticks;
+}
+
+FFallbackStructSerializer::FFallbackStructSerializer(UPropertySerializer* Serializer) : PropertySerializer(Serializer) {
+}
+
+void FFallbackStructSerializer::Serialize(UScriptStruct* Struct, const TSharedPtr<FJsonObject> JsonValue, const void* StructData, TArray<int32>* OutReferencedSubobjects) {
+	for (FProperty* Property = Struct->PropertyLink; Property; Property = Property->PropertyLinkNext) {
+
+		if (PropertySerializer->ShouldSerializeProperty(Property)) {
+			const void* PropertyValue = Property->ContainerPtrToValuePtr<void>(StructData);
+			
+			const TSharedRef<FJsonValue> PropertyValueJson = PropertySerializer->SerializePropertyValue(Property, PropertyValue, OutReferencedSubobjects);
+			JsonValue->SetField(Property->GetName(), PropertyValueJson);
+		}
+	}
+}
+
+void FFallbackStructSerializer::Deserialize(UScriptStruct* Struct, void* StructData, const TSharedPtr<FJsonObject> JsonValue) {
+	for (FProperty* Property = Struct->PropertyLink; Property; Property = Property->PropertyLinkNext) {
+		const FString PropertyName = Property->GetName();
+		
+		if (PropertySerializer->ShouldSerializeProperty(Property) && JsonValue->HasField(PropertyName)) {
+			void* PropertyValue = Property->ContainerPtrToValuePtr<void>(StructData);
+			const TSharedPtr<FJsonValue> ValueObject = JsonValue->Values.FindChecked(PropertyName);
+			
+			if (ValueObject.IsValid()) {
+				PropertySerializer->DeserializePropertyValue(Property, ValueObject.ToSharedRef(), PropertyValue);
+			}
+		}
+	}
+}
+
+bool FFallbackStructSerializer::Compare(UScriptStruct* Struct, const TSharedPtr<FJsonObject> JsonValue, const void* StructData, const TSharedPtr<FObjectCompareContext> Context) {
+	for (FProperty* Property = Struct->PropertyLink; Property; Property = Property->PropertyLinkNext) {
+		const FString PropertyName = Property->GetName();
+		
+		if (PropertySerializer->ShouldSerializeProperty(Property) && JsonValue->HasField(PropertyName)) {
+			const void* PropertyValue = Property->ContainerPtrToValuePtr<void>(StructData);
+			const TSharedPtr<FJsonValue> ValueObject = JsonValue->Values.FindChecked(PropertyName);
+
+			if (!PropertySerializer->ComparePropertyValues(Property, ValueObject.ToSharedRef(), PropertyValue, Context)) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+UPropertySerializer::UPropertySerializer() {
+	this->FallbackStructSerializer = MakeShared<FFallbackStructSerializer>(this);
+	this->StructSerializers.Add(TBaseStructure<FDateTime>::Get(), MakeShared<FDateTimeSerializer>());
+	this->StructSerializers.Add(TBaseStructure<FTimespan>::Get(), MakeShared<FTimespanSerializer>());
+}
 
 void UPropertySerializer::DeserializePropertyValue(FProperty* Property, const TSharedRef<FJsonValue>& JsonValue, void* Value) {
 
@@ -195,7 +280,13 @@ void UPropertySerializer::DeserializePropertyValueInner(FProperty* Property, con
 void UPropertySerializer::DisablePropertySerialization(UStruct* Struct, FName PropertyName) {
 	FProperty* Property = Struct->FindPropertyByName(PropertyName);
 	checkf(Property, TEXT("Cannot find Property %s in Struct %s"), *PropertyName.ToString(), *Struct->GetPathName());
+	this->PinnedStructs.Add(Struct);
 	this->BlacklistedProperties.Add(Property);
+}
+
+void UPropertySerializer::AddStructSerializer(UScriptStruct* Struct, const TSharedPtr<FStructSerializer>& Serializer) {
+	this->PinnedStructs.Add(Struct);
+	this->StructSerializers.Add(Struct, Serializer);
 }
 
 bool UPropertySerializer::ShouldSerializeProperty(FProperty* Property) const {
@@ -416,31 +507,17 @@ TSharedRef<FJsonValue> UPropertySerializer::SerializePropertyValueInner(FPropert
 }
 
 TSharedRef<FJsonObject> UPropertySerializer::SerializeStruct(UScriptStruct* Struct, const void* Value, TArray<int32>* OutReferencedSubobjects) {
-	//checkf((Struct->StructFlags & EStructFlags::STRUCT_SerializeNative) == 0, TEXT("Attempt to serialize struct with native Serialize: %s"), *Struct->GetPathName());
-	TSharedRef<FJsonObject> Properties = MakeShareable(new FJsonObject());
-	for (FProperty* Property = Struct->PropertyLink; Property; Property = Property->PropertyLinkNext) {
-		if (ObjectHierarchySerializer == NULL || ShouldSerializeProperty(Property)) {
-			const void* PropertyValue = Property->ContainerPtrToValuePtr<void>(Value);
-			TSharedRef<FJsonValue> PropertyValueJson = SerializePropertyValue(Property, PropertyValue, OutReferencedSubobjects);
-			Properties->SetField(Property->GetName(), PropertyValueJson);
-		}
-	}
-	return Properties;
+	FStructSerializer* StructSerializer = GetStructSerializer(Struct);
+
+	TSharedRef<FJsonObject> JsonObject = MakeShared<FJsonObject>();
+	StructSerializer->Serialize(Struct, JsonObject, Value, OutReferencedSubobjects);
+	return JsonObject;
 }
 
 void UPropertySerializer::DeserializeStruct(UScriptStruct* Struct, const TSharedRef<FJsonObject>& Properties, void* OutValue) {
-	for (FProperty* Property = Struct->PropertyLink; Property; Property = Property->PropertyLinkNext) {
-		const FString PropertyName = Property->GetName();
-		if ((ObjectHierarchySerializer == NULL || ShouldSerializeProperty(Property)) && Properties->HasField(PropertyName)) {
-			void* PropertyValue = Property->ContainerPtrToValuePtr<void>(OutValue);
-			const TSharedPtr<FJsonValue>& ValueObject = Properties->Values.FindChecked(PropertyName);
-			if (ValueObject.IsValid()) {
-				DeserializePropertyValue(Property, ValueObject.ToSharedRef(), PropertyValue);
-			}
-		}
-	}
+	FStructSerializer* StructSerializer = GetStructSerializer(Struct);
+	StructSerializer->Deserialize(Struct, OutValue, Properties);
 }
-
 
 bool UPropertySerializer::ComparePropertyValues(FProperty* Property, const TSharedRef<FJsonValue>& JsonValue, const void* CurrentValue, const TSharedPtr<FObjectCompareContext> Context) {
 
@@ -631,19 +708,14 @@ bool UPropertySerializer::ComparePropertyValuesInner(FProperty* Property, const 
 }
 
 bool UPropertySerializer::CompareStructs(UScriptStruct* Struct, const TSharedRef<FJsonObject>& JsonValue, const void* CurrentValue, const TSharedPtr<FObjectCompareContext> Context) {
-	for (FProperty* Property = Struct->PropertyLink; Property; Property = Property->PropertyLinkNext) {
-		const FString PropertyName = Property->GetName();
-		
-		if (ShouldSerializeProperty(Property) && JsonValue->HasField(PropertyName)) {
-			const void* PropertyValue = Property->ContainerPtrToValuePtr<void>(CurrentValue);
-			const TSharedPtr<FJsonValue>& ValueObject = JsonValue->Values.FindChecked(PropertyName);
+	FStructSerializer* StructSerializer = GetStructSerializer(Struct);
+	return StructSerializer->Compare(Struct, JsonValue, CurrentValue, Context);
+}
 
-			if (!ComparePropertyValues(Property, ValueObject.ToSharedRef(), PropertyValue, Context)) {
-				return false;
-			}
-		}
-	}
-	return true;
+FStructSerializer* UPropertySerializer::GetStructSerializer(UScriptStruct* Struct) const {
+	check(Struct);
+	TSharedPtr<FStructSerializer> const* StructSerializer = StructSerializers.Find(Struct);
+	return StructSerializer && ensure(StructSerializer->IsValid()) ? StructSerializer->Get() : FallbackStructSerializer;
 }
 
 PRAGMA_ENABLE_OPTIMIZATION

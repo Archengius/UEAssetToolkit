@@ -112,23 +112,28 @@ void DumpAllGameAssets(const TArray<FString>& Args, UWorld* World, FOutputDevice
 	FAssetDumperCommands::DumpAllGameAssets(FString::Join(Args, TEXT(" ")));
 }
 
-void FAssetDumperCommands::FindUnknownAssetClasses(TArray<FName>& OutUnknownAssetClasses) {
+void FAssetDumperCommands::FindUnknownAssetClasses(const FString& PackagePathFilter, TArray<FUnknownAssetClass>& OutUnknownAssetClasses) {
 	TArray<FName> SupportedClasses;
 	for (UAssetTypeSerializer* Serializer : UAssetTypeSerializer::GetAvailableAssetSerializers()) {
 		SupportedClasses.Add(Serializer->GetAssetClass());
 		Serializer->GetAdditionallyHandledAssetClasses(SupportedClasses);
 	}
-	FSelectedAssetsStruct::FindUnknownAssetClasses(SupportedClasses, OutUnknownAssetClasses);
+	FSelectedAssetsStruct::FindUnknownAssetClasses(PackagePathFilter, SupportedClasses, OutUnknownAssetClasses);
 }
 
 void PrintUnknownAssetClasses(const TArray<FString>& Args, UWorld* World, FOutputDevice& Ar) {
-	TArray<FName> UnknownAssetClasses;
-	FAssetDumperCommands::FindUnknownAssetClasses(UnknownAssetClasses);
+	TArray<FUnknownAssetClass> UnknownAssetClasses;
+	const FString FilterAssetPath = FString::Join(Args, TEXT(" "));
+	FAssetDumperCommands::FindUnknownAssetClasses(FilterAssetPath, UnknownAssetClasses);
 	
 	if (UnknownAssetClasses.Num() > 0) {
-		Ar.Log(TEXT("Unknown asset classes in asset registry: "));
-		for (const FName& AssetClass : UnknownAssetClasses) {
-			Ar.Logf(TEXT(" - '%s'"), *AssetClass.ToString());
+		Ar.Logf(TEXT("Unknown asset classes in asset registry under path %s: "), *FilterAssetPath);
+		for (const FUnknownAssetClass& AssetClass : UnknownAssetClasses) {
+			Ar.Logf(TEXT("%s (%d)"), *AssetClass.AssetClass.ToString(), AssetClass.FoundAssets.Num());
+
+			for (int32 i = 0; i < FMath::Min(AssetClass.FoundAssets.Num(), 10); i++) {
+				Ar.Logf(TEXT("  %s"), *AssetClass.FoundAssets[i].ToString());
+			}
 		}
 	} else {
 		Ar.Logf(TEXT("No unknown asset classes found in asset registry"));

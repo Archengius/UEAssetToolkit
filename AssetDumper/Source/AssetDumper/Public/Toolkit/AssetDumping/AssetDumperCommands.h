@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 
+struct FUnknownAssetClass;
+
 class ASSETDUMPER_API FAssetDumperCommands {
 public:
 	/** Opens the UI for performing asset dumping manually */
@@ -13,7 +15,7 @@ public:
 	static void DumpAllGameAssets(const FString& Params);
 
 	/** Retrieves a list of classes not supported by the asset dumper */
-	static void FindUnknownAssetClasses(TArray<FName>& OutUnknownAssetClasses);
+	static void FindUnknownAssetClasses(const FString& PackagePathFilter, TArray<FUnknownAssetClass>& OutUnknownAssetClasses);
 
 	/** Synchronizes asset registry with the state of the assets on disk */
 	static void RescanAssetsOnDisk();

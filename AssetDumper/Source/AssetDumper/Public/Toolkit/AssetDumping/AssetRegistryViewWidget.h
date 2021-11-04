@@ -1,6 +1,12 @@
 #pragma once
 #include "Slate.h"
 
+/** Struct holding information about unknown asset class */
+struct ASSETDUMPER_API FUnknownAssetClass {
+	FName AssetClass;
+	TArray<FName> FoundAssets;
+};
+
 /** Struct used to gather data about selected assets from the asset tree */
 struct ASSETDUMPER_API FSelectedAssetsStruct {
 private:
@@ -46,7 +52,7 @@ public:
 	void LogSettings();
 
 	/** Find unknown asset classes in the asset registry */
-	static void FindUnknownAssetClasses(const TArray<FName>& KnownAssetClasses, TArray<FName>& OutUnknownClasses);
+	static void FindUnknownAssetClasses(const FString& PackagePathFilter, const TArray<FName>& KnownAssetClasses, TArray<FUnknownAssetClass>& OutUnknownClasses);
 
 	/** Returns the map of gathered assets. Keep in mind you need to use GatherAssetsData before using it */
 	FORCEINLINE const TMap<FName, FAssetData>& GetGatheredAssets() const { return GatheredAssetPackages; }

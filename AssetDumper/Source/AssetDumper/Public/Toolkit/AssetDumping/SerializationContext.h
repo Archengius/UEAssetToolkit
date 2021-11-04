@@ -112,4 +112,6 @@ public:
 		}
 		return FPaths::Combine(PackageBaseDirectory, Filename);
 	}
+
+	FORCEINLINE const FString& GetRootOutputDirectory() const { return RootOutputDirectory; }
 };

@@ -294,18 +294,23 @@ void FSelectedAssetsStruct::LogSettings() {
 	UE_LOG(LogAssetDumper, Display, TEXT("================== END SETTINGS FOR ASSET GATHERER ================="));
 }
 
-void FSelectedAssetsStruct::FindUnknownAssetClasses(const TArray<FName>& KnownAssetClasses, TArray<FName>& OutUnknownClasses) {
+void FSelectedAssetsStruct::FindUnknownAssetClasses(const FString& PackagePathFilter, const TArray<FName>& KnownAssetClasses, TArray<FUnknownAssetClass>& OutUnknownClasses) {
 	TSet<FName> KnownAssetClassesSet;
 	KnownAssetClassesSet.Append(KnownAssetClasses);
-	TSet<FName> UnknownAssetClassesSet;
+	TMap<FName, FUnknownAssetClass> UnknownAssetClasses;
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	IAssetRegistry& AssetRegistry = AssetRegistryModule.GetRegistry();
+	const IAssetRegistry& AssetRegistry = AssetRegistryModule.GetRegistry();
+	
 	AssetRegistry.EnumerateAllAssets([&](const FAssetData& AssetData) {
         if (!KnownAssetClassesSet.Contains(AssetData.AssetClass)) {
-			UnknownAssetClassesSet.Add(AssetData.AssetClass);
+			if (AssetData.PackageName.ToString().StartsWith(PackagePathFilter)) {
+				FUnknownAssetClass& UnknownAssetClass = UnknownAssetClasses.FindOrAdd(AssetData.AssetClass);
+				UnknownAssetClass.AssetClass = AssetData.AssetClass;
+				UnknownAssetClass.FoundAssets.Add(AssetData.PackageName);
+			}
         }
         return true;
     });
-	OutUnknownClasses = UnknownAssetClassesSet.Array();
+	UnknownAssetClasses.GenerateValueArray(OutUnknownClasses);
 }

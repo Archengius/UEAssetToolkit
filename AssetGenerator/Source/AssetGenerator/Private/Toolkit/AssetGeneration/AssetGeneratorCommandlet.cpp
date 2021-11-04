@@ -38,7 +38,7 @@ public:
 		}
 		if (bShouldGC) {
 			UE_LOG(LogAssetGeneratorCommandlet, Display, TEXT("Collecting garbage"));
-			CollectGarbage(RF_NoFlags);
+			CollectGarbage(RF_Standalone);
 
 			this->PackagesCookedSinceLastGC = 0;
 			this->LastGCTimestamp = FApp::GetCurrentTime();
@@ -106,7 +106,7 @@ int32 UAssetGeneratorCommandlet::Main(const FString& Params) {
 	}
 
 	//Build a blacklist function
-	TFunction<bool(const FString& PackageName)> PackageNameBlacklistFilter;
+	TFunction<bool(const FString& PackageName)> PackageNameBlacklistFilter = [](const FString& PackageName) { return true; };
 	{
 		FString BlacklistPackageNamesFile;
 		if (FParse::Value(*Params, TEXT("BlacklistPackageNames="), BlacklistPackageNamesFile)) {

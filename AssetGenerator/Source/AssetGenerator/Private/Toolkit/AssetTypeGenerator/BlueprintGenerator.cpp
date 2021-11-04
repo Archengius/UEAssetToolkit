@@ -590,7 +590,7 @@ UK2Node* FBlueprintGeneratorUtils::CreateFunctionOverride(UBlueprint* Blueprint,
 		UK2Node_Event* ExistingNode = FBlueprintEditorUtils::FindOverrideForFunction(Blueprint, FunctionOwnerClass, FunctionName);
 
 		//If it's a ghost node, we want to remove the ghost mark and create the parent call if it doesn't have one already
-		if (ExistingNode->IsAutomaticallyPlacedGhostNode()) {
+		if (ExistingNode != NULL && ExistingNode->IsAutomaticallyPlacedGhostNode()) {
 			ResetNodeDisabledState(ExistingNode);
 			
 			UEdGraphPin* ExecPin = ExistingNode->FindPin(UEdGraphSchema_K2::PN_Then, EGPD_Output);
