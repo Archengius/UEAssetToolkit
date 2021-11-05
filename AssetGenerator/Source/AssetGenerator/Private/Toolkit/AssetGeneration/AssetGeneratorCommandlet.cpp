@@ -5,6 +5,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "ShaderCompiler.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Toolkit/AssetGeneration/AssetGenerationUtil.h"
 
 DEFINE_LOG_CATEGORY(LogAssetGeneratorCommandlet)
 
@@ -193,7 +194,9 @@ int32 UAssetGeneratorCommandlet::Main(const FString& Params) {
 	UE_LOG(LogAssetGeneratorCommandlet, Display, TEXT("Starting generation of %d game assets"), ResultPackagesToGenerate.Num());
 
 	//Synchronize asset registry state with the current assets we have on the disk
+	ClearEmptyGamePackagesLoadedDuringDisregardGC();
 	IAssetRegistry::GetChecked().SearchAllAssets(true);
+	ProcessDeferredCommands();
 
 	FAssetGeneratorGCController AssetGeneratorGCController{};
 	AssetGeneratorGCController.ConditionallyCollectGarbage();
@@ -238,8 +241,11 @@ int32 UAssetGeneratorCommandlet::Main(const FString& Params) {
 
 	if (InMemoryDirtyPackages.Num()) {
 		UE_LOG(LogAssetGeneratorCommandlet, Display, TEXT("Saving %d in-memory dirty packages after the asset generation is done"), InMemoryDirtyPackages.Num());
-		UEditorLoadingAndSavingUtils::SavePackages(InMemoryDirtyPackages, true);
-		
+
+		for (UPackage* Package : InMemoryDirtyPackages) {
+			UE_LOG(LogAssetGeneratorCommandlet, Display, TEXT("Saving dirty package %s"), *Package->GetName());
+			UEditorLoadingAndSavingUtils::SavePackages({Package}, true);
+		}
 		AssetGeneratorGCController.ConditionallyCollectGarbage();
 	}
 
@@ -255,8 +261,41 @@ void UAssetGeneratorCommandlet::ProcessDeferredCommands() {
 	FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 
 	// execute deferred commands
-	for (int32 DeferredCommandsIndex = 0; DeferredCommandsIndex<GEngine->DeferredCommands.Num(); ++DeferredCommandsIndex) {
-		GEngine->Exec( GWorld, *GEngine->DeferredCommands[DeferredCommandsIndex], *GLog);
+	for (int32 DeferredCommandsIndex = 0; DeferredCommandsIndex< GEngine->DeferredCommands.Num(); DeferredCommandsIndex++) {
+		GEngine->Exec(GWorld, *GEngine->DeferredCommands[DeferredCommandsIndex], *GLog);
 	}
 	GEngine->DeferredCommands.Empty();
+}
+
+void UAssetGeneratorCommandlet::ClearEmptyGamePackagesLoadedDuringDisregardGC() {
+	//Some packages get loaded through the config system during the initial load, which then
+	//marks them as GC disregarded, so they end up being loaded as empty rooted packages when actual referenced
+	//packages on disk do not exist. Here we track down these packages and delete them, because they
+	//interfere with the asset generator by the commandlet
+	for(TObjectIterator<UPackage> It; It; ++It) {
+		UPackage* Package = *It;
+		if (!Package->GetName().StartsWith(TEXT("/Game/"))) {
+			continue;
+		}
+		
+		int32 ExistingObjectsNum = 0;
+		ForEachObjectWithPackage(Package, [&](UObject* Object){
+			ExistingObjectsNum++;
+			return false;
+		});
+		if (ExistingObjectsNum != 0) {
+			continue;
+		}
+
+		UE_LOG(LogAssetGenerator, Warning, TEXT("Found empty game package loaded during the initial load: %s. It will be deleted"), *Package->GetName());
+
+		const FString NewPackageName = FString::Printf(TEXT("TRASH_%s"), *Package->GetName());
+		const FName NewUniquePackageName = MakeUniqueObjectName(GetTransientPackage(), UPackage::StaticClass(), FName(*NewPackageName));
+
+		Package->RemoveFromRoot();
+		Package->SetFlags(RF_Transient);
+		Package->Rename(*NewUniquePackageName.ToString(), NULL, REN_DoNothing);
+		Package->MarkPendingKill();
+	}
+	CollectGarbage(RF_Standalone);
 }
