@@ -106,6 +106,23 @@ int32 UAssetGeneratorCommandlet::Main(const FString& Params) {
 		}
 	}
 
+	//Build a list of packages to skip saving for in final save pass
+	TArray<FString> InMemoryPackagesToSkip;
+	{
+		FString SkipSavePackagesFile;
+		if (FParse::Value(*Params, TEXT("SkipSavePackages="), SkipSavePackagesFile)) {
+
+			if (!PlatformFile.FileExists(*SkipSavePackagesFile)) {
+				UE_LOG(LogAssetGeneratorCommandlet, Error, TEXT("Skip save packages file %s does not exist"), *SkipSavePackagesFile);
+				return 1;
+			}
+
+			FString ResultFileContents;
+			FFileHelper::LoadFileToString(ResultFileContents, *SkipSavePackagesFile);
+			ResultFileContents.ParseIntoArrayLines(InMemoryPackagesToSkip);
+		}
+	}
+
 	//Build a blacklist function
 	TFunction<bool(const FString& PackageName)> PackageNameBlacklistFilter = [](const FString& PackageName) { return true; };
 	{
@@ -234,7 +251,8 @@ int32 UAssetGeneratorCommandlet::Main(const FString& Params) {
 
 	for (TObjectIterator<UPackage> It; It; ++It) {
 		UPackage* Package = *It;
-		if (Package->IsDirty()) {
+		if (Package->IsDirty() && !InMemoryPackagesToSkip.Contains(Package->GetName())) {
+			UE_LOG(LogAssetGeneratorCommandlet, Display, TEXT("Scheduling save of dirty package %s"), *Package->GetName());
 			InMemoryDirtyPackages.Add(Package);
 		}
 	}
@@ -292,10 +310,10 @@ void UAssetGeneratorCommandlet::ClearEmptyGamePackagesLoadedDuringDisregardGC() 
 		const FString NewPackageName = FString::Printf(TEXT("TRASH_%s"), *Package->GetName());
 		const FName NewUniquePackageName = MakeUniqueObjectName(GetTransientPackage(), UPackage::StaticClass(), FName(*NewPackageName));
 
-		Package->RemoveFromRoot();
+		//Package->RemoveFromRoot();
 		Package->SetFlags(RF_Transient);
 		Package->Rename(*NewUniquePackageName.ToString(), NULL, REN_DoNothing);
-		Package->MarkPendingKill();
+		//Package->MarkPendingKill();
 	}
-	CollectGarbage(RF_Standalone);
+	//CollectGarbage(RF_Standalone);
 }

@@ -58,10 +58,10 @@ public:
 	}
 	
 	bool CompareObjectsWithContext(const int32 ObjectIndex, UObject* Object, TSharedPtr<FObjectCompareContext> Context = MakeShareable(new FObjectCompareContext));
-	bool AreObjectPropertiesUpToDate(const TSharedRef<FJsonObject>& Properties, UObject* Object, const TSharedPtr<FObjectCompareContext> Context = MakeShareable(new FObjectCompareContext));
+	bool AreObjectPropertiesUpToDate(const TSharedPtr<FJsonObject>& Properties, UObject* Object, const TSharedPtr<FObjectCompareContext> Context = MakeShareable(new FObjectCompareContext));
 
 	void FlushPropertiesIntoObject(const int32 ObjectIndex, UObject* Object, bool bVerifyNameAndRename, bool bVerifyOuterAndMove);
-    void DeserializeObjectProperties(const TSharedRef<FJsonObject>& Properties, UObject* Object);
+    void DeserializeObjectProperties(const TSharedPtr<FJsonObject>& Properties, UObject* Object);
 
 	void SetPropertySerializer(UPropertySerializer* NewPropertySerializer);
 	

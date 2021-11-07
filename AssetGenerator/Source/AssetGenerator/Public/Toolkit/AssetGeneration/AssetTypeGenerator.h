@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "Dom/JsonObject.h"
 #include "AssetTypeGenerator.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAssetGenerator, Log, All);
@@ -32,6 +33,7 @@ UCLASS()
 class ASSETGENERATOR_API UAssetTypeGenerator : public UObject {
 	GENERATED_BODY()
 private:
+	FString DumpRootDirectory;
 	FString PackageBaseDirectory;
     FName PackageName;
 	FName AssetName;
@@ -53,7 +55,7 @@ private:
 	UObject* AssetObject;
 
 	/** Initializes this asset generator instance with the file data */
-	void InitializeInternal(const FString& PackageBaseDirectory, FName PackageName, TSharedPtr<FJsonObject> RootFileObject, bool bGeneratePublicProject);
+	void InitializeInternal(const FString& DumpRootDirectory, const FString& PackageBaseDirectory, FName PackageName, TSharedPtr<FJsonObject> RootFileObject, bool bGeneratePublicProject);
 
 	/** Dispatches asset construction and tries to locate existing packages */
 	void ConstructAssetAndPackage();
@@ -72,12 +74,16 @@ protected:
 	/** True whenever we are generating project that is publicly distributable. Some assets will be blanked out in that case */
 	FORCEINLINE bool IsGeneratingPublicProject() const { return bIsGeneratingPublicProject; }
 
+	FORCEINLINE TSharedPtr<FJsonObject> GetAssetObjectData() const { return AssetData->GetObjectField(TEXT("AssetObjectData")); }
+
 	/** Marks asset as changed by this generator */
 	void MarkAssetChanged();
 
 	void SetPackageAndAsset(UPackage* NewPackage, UObject* NewAsset, bool bSetObjectMark = true);
 
 	FString GetAdditionalDumpFilePath(const FString& Postfix, const FString& Extension) const;
+
+	FORCEINLINE const FString& GetRootDumpDirectory() const { return DumpRootDirectory; }
 
 	/** Adds assets referenced by the asset object through referenced objects */
 	void PopulateReferencedObjectsDependencies(TArray<FPackageDependency>& OutDependencies) const;

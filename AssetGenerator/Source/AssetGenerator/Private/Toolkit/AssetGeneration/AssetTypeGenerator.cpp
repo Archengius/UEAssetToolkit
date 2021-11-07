@@ -52,7 +52,8 @@ UAssetTypeGenerator::UAssetTypeGenerator() {
 	this->bIsGeneratingPublicProject = false;
 }
 
-void UAssetTypeGenerator::InitializeInternal(const FString& InPackageBaseDirectory, const FName InPackageName, const TSharedPtr<FJsonObject> RootFileObject, bool bGeneratePublicProject) {
+void UAssetTypeGenerator::InitializeInternal(const FString& DumpRootDirectory, const FString& InPackageBaseDirectory, const FName InPackageName, const TSharedPtr<FJsonObject> RootFileObject, bool bGeneratePublicProject) {
+	this->DumpRootDirectory = DumpRootDirectory;
 	this->PackageBaseDirectory = InPackageBaseDirectory;
 	this->PackageName = FName(*RootFileObject->GetStringField(TEXT("AssetPackage")));
 	this->AssetName = FName(*RootFileObject->GetStringField(TEXT("AssetName")));
@@ -209,7 +210,7 @@ UAssetTypeGenerator* UAssetTypeGenerator::InitializeFromFile(const FString& Root
 	}
 
 	UAssetTypeGenerator* NewGenerator = NewObject<UAssetTypeGenerator>(GetTransientPackage(), AssetTypeGenerator);
-	NewGenerator->InitializeInternal(PackageBaseDirectory, PackageName, RootFileObject, bGeneratePublicProject);
+	NewGenerator->InitializeInternal(RootDirectory, PackageBaseDirectory, PackageName, RootFileObject, bGeneratePublicProject);
 	return NewGenerator;
 }
 

@@ -294,7 +294,7 @@ bool UObjectHierarchySerializer::CompareObjectsWithContext(const int32 ObjectInd
 	return true;
 }
 
-bool UObjectHierarchySerializer::AreObjectPropertiesUpToDate(const TSharedRef<FJsonObject>& Properties, UObject* Object, const TSharedPtr<FObjectCompareContext> Context) {
+bool UObjectHierarchySerializer::AreObjectPropertiesUpToDate(const TSharedPtr<FJsonObject>& Properties, UObject* Object, const TSharedPtr<FObjectCompareContext> Context) {
 	UClass* ObjectClass = Object->GetClass();
 
 	//Iterate all properties and return false if our values do not match existing ones
@@ -352,7 +352,7 @@ void UObjectHierarchySerializer::FlushPropertiesIntoObject(const int32 ObjectInd
 	DeserializeObjectProperties(Properties.ToSharedRef(), Object);
 }
 
-void UObjectHierarchySerializer::DeserializeObjectProperties(const TSharedRef<FJsonObject>& Properties, UObject* Object) {
+void UObjectHierarchySerializer::DeserializeObjectProperties(const TSharedPtr<FJsonObject>& Properties, UObject* Object) {
     UClass* ObjectClass = Object->GetClass();
     for (FProperty* Property = ObjectClass->PropertyLink; Property; Property = Property->PropertyLinkNext) {
         const FString PropertyName = Property->GetName();

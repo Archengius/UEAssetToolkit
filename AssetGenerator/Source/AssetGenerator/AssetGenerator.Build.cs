@@ -37,7 +37,8 @@ public class AssetGenerator : ModuleRules
             "Kismet",
             "WorkspaceMenuStructure",
             "PhysicsCore",
-            "DeveloperSettings"
+            "DeveloperSettings", 
+            "MediaAssets"
         });
     }
 }
