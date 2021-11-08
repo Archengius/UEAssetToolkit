@@ -1,7 +1,7 @@
 #include "Toolkit/AssetTypeGenerator/MaterialGenerator.h"
-
 #include "LandscapeGrassType.h"
 #include "Engine/Texture.h"
+#include "Engine/Texture2DArray.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "MaterialEditor/Public/MaterialEditingLibrary.h"
 #include "MaterialGraph/MaterialGraphNode_Comment.h"
@@ -25,6 +25,7 @@
 #include "Toolkit/PropertySerializer.h"
 #include "VT/RuntimeVirtualTexture.h"
 #include "Engine/TextureCube.h"
+#include "Materials/MaterialExpressionTextureSampleParameter2DArray.h"
 
 static const TArray<FName> ExcludedMaterialDumpProperties = {
 	//We cannot recompile game materials and add usages since we do not have their sources, so we ignore this value and force it to false
@@ -244,6 +245,9 @@ UClass* GetTextureSampleParameterClassForTexture(UTexture* Texture) {
 	}
 	if (Texture->IsA<UTextureCube>()) {
 		return UMaterialExpressionTextureSampleParameterCube::StaticClass();
+	}
+	if (Texture->IsA(UTexture2DArray::StaticClass())) {
+		return UMaterialExpressionTextureSampleParameter2DArray::StaticClass();
 	}
 	checkf(0, TEXT("Unsupported Texture Class: %s"), *Texture->GetPathName());
 	return NULL;
