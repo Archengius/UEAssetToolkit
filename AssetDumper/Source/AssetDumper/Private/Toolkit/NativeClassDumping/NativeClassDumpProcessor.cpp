@@ -105,6 +105,7 @@ void FNativeClassDumpProcessor::PerformNativeClassDumpForClass(UClass* Class) {
 
 	const TSharedPtr<FJsonObject> ClassSerializedData = MakeShareable(new FJsonObject());
 	UPropertySerializer* PropertySerializer = NewObject<UPropertySerializer>();
+	PropertySerializer->SetSerializeTransient(true);
 	UObjectHierarchySerializer* ObjectHierarchySerializer = NewObject<UObjectHierarchySerializer>();
 	ObjectHierarchySerializer->SetPropertySerializer(PropertySerializer);
 	ObjectHierarchySerializer->InitializeForSerialization(Class->GetPackage());
@@ -140,6 +141,7 @@ void FNativeClassDumpProcessor::PerformNativeClassDumpForStruct(UStruct* Struct)
 
 	const TSharedPtr<FJsonObject> ClassSerializedData = MakeShareable(new FJsonObject());
 	UPropertySerializer* PropertySerializer = NewObject<UPropertySerializer>();
+	PropertySerializer->SetSerializeTransient(true);
 	UObjectHierarchySerializer* ObjectHierarchySerializer = NewObject<UObjectHierarchySerializer>();
 	ObjectHierarchySerializer->SetPropertySerializer(PropertySerializer);
 	ObjectHierarchySerializer->InitializeForSerialization(Struct->GetPackage());
