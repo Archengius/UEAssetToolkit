@@ -21,7 +21,10 @@ void FAssetDumperModule::StartupModule() {
 		FAssetDumperCommands::DumpAllGameAssets(FCommandLine::Get());
 	}
 
-	FNativeClassDumperCommands::ProcessCommandLineArguments();
+	if (FParse::Param(FCommandLine::Get(), TEXT("DumpNativeClasses"))) {
+		UE_LOG(LogAssetDumper, Log, TEXT("Native class dump required through the command line. Game will dump the classes and exit"));
+		FNativeClassDumperCommands::DumpAllNativeClasses(FCommandLine::Get());
+	}
 }
 
 void FAssetDumperModule::ShutdownModule() {

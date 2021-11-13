@@ -3,5 +3,5 @@
 class FNativeClassDumperCommands
 {
 public:
-	static void ProcessCommandLineArguments();
+	static void DumpAllNativeClasses(const FString& Params);
 };
