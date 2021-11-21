@@ -218,7 +218,17 @@ void UObjectHierarchySerializer::SerializeObjectPropertiesIntoObject(UObject* Ob
 bool UObjectHierarchySerializer::CompareObjectsWithContext(const int32 ObjectIndex, UObject* Object, TSharedPtr<FObjectCompareContext> CompareContext) {
 	//If either of the operands are null, they are only equal if both are NULL
 	if (ObjectIndex == INDEX_NONE || Object == NULL) {
-		return ObjectIndex == INDEX_NONE && Object == NULL;
+		if (ObjectIndex == INDEX_NONE && Object == NULL)
+			return true;
+
+		if (ObjectIndex == INDEX_NONE)
+			return false;
+		
+		// If the object is not found, deserializing it would still be NULL
+		const TSharedPtr<FJsonObject>& ObjectJson = SerializedObjects.FindChecked(ObjectIndex);
+		const FString ObjectType = ObjectJson->GetStringField(TEXT("Type"));
+
+		return ObjectType == TEXT("Import") && DeserializeObject(ObjectIndex) == NULL;
 	}
 
 	//Return true if we have already compared this object, otherwise we will run into the recursion
