@@ -1,4 +1,4 @@
-﻿#include "Toolkit/AssetTypeGenerator/UserWidgetGenerator.h"
+#include "Toolkit/AssetTypeGenerator/UserWidgetGenerator.h"
 #include "Blueprint/WidgetTree.h"
 #include "Channels/MovieSceneEvent.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -82,6 +82,12 @@ void UUserWidgetGenerator::FinalizeAssetCDO() {
 			MoveToTransientPackageAndRename(AnimationObject);
 		}
 		WidgetBlueprint->Animations.Empty();
+
+		// Deserializing the animation will find these ones, so we move them to avoid that. The class will be regenerated afterwards anyway
+		UWidgetBlueprintGeneratedClass* GeneratedClass = Cast<UWidgetBlueprintGeneratedClass>(WidgetBlueprint->GeneratedClass);
+		for (UObject* AnimationObject : GeneratedClass->Animations) {
+			MoveToTransientPackageAndRename(AnimationObject);
+		}
 
 		//Deserialize new animations into the array directly
 		for (const TSharedPtr<FJsonValue>& Animation : Animations) {
