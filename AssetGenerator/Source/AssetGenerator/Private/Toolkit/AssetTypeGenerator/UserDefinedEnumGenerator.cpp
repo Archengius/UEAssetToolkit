@@ -56,9 +56,12 @@ void UUserDefinedEnumGenerator::PopulateEnumWithData(UUserDefinedEnum* Enum) {
 	for (const TSharedPtr<FJsonValue> NameValue : DisplayNames) {
 		const TSharedPtr<FJsonObject> PairObject = NameValue->AsObject();
 		const FName Name = FName(*PairObject->GetStringField(TEXT("Name")));
-		const FString DisplayName = PairObject->GetStringField(TEXT("DisplayName"));
+		const FString DisplayNameJson = PairObject->GetStringField(TEXT("DisplayName"));
 
-		Enum->DisplayNameMap.Add(Name, FText::FromString(DisplayName));
+		FText DisplayName;
+		FTextStringHelper::ReadFromBuffer(*DisplayNameJson, DisplayName);
+
+		Enum->DisplayNameMap.Add(Name, DisplayName);
 	}
 
 	MarkAssetChanged();

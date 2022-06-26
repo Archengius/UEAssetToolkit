@@ -38,7 +38,9 @@ public class AssetGenerator : ModuleRules
             "WorkspaceMenuStructure",
             "PhysicsCore",
             "DeveloperSettings", 
-            "MediaAssets"
+            "MediaAssets",
+            "AudioEditor",
+            "GraphEditor"
         });
     }
 }

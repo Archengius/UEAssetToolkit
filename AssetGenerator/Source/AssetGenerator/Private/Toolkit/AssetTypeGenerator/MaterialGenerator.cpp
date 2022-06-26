@@ -26,6 +26,7 @@
 #include "VT/RuntimeVirtualTexture.h"
 #include "Engine/TextureCube.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2DArray.h"
+#include "MediaTexture.h"
 
 static const TArray<FName> ExcludedMaterialDumpProperties = {
 	//We cannot recompile game materials and add usages since we do not have their sources, so we ignore this value and force it to false
@@ -240,7 +241,7 @@ void UMaterialGenerator::ConnectBasicParameterPinsIfPossible(UMaterial* Material
 }
 
 UClass* GetTextureSampleParameterClassForTexture(UTexture* Texture) {
-	if (Texture->IsA<UTexture2D>()) {
+	if (Texture->IsA<UTexture2D>() || Texture->IsA<UMediaTexture>()) {
 		return UMaterialExpressionTextureSampleParameter2D::StaticClass();
 	}
 	if (Texture->IsA<UTextureCube>()) {
