@@ -1,4 +1,4 @@
-﻿#include "Toolkit/AssetTypeGenerator/BlueprintGenerator.h"
+#include "Toolkit/AssetTypeGenerator/BlueprintGenerator.h"
 #include "K2Node_FunctionEntry.h"
 #include "Dom/JsonObject.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -209,7 +209,9 @@ void UBlueprintGenerator::FinalizeAssetCDO() {
 	
 	if (bScriptObjectChanged) {
 		//Trash out old SimpleConstructionScript so we can straight up replace it with the new one
-		MoveToTransientPackageAndRename(Blueprint->SimpleConstructionScript);
+		if(Blueprint->SimpleConstructionScript != NULL) {
+			MoveToTransientPackageAndRename(Blueprint->SimpleConstructionScript);
+		}
 
 		//Deserialize new SCS, update the flags accordingly and assign it to the blueprint
 		//There is no need to duplicate it because it's owner is actually supposed to be the BPGC (for whatever reason)
