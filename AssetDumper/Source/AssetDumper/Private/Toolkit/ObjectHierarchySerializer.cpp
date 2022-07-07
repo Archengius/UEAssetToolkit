@@ -521,6 +521,11 @@ UObject* UObjectHierarchySerializer::DeserializeExportedObject(int32 ObjectIndex
 		ConstructedObject = ExistingObject;
 		
 	} else {
+		UObject* ExistingObjectWithDifferentClass = StaticFindObjectFast(UObject::StaticClass(), OuterObject, *ObjectName);
+		if (ExistingObjectWithDifferentClass != nullptr) {
+			UE_LOG(LogObjectHierarchySerializer, Warning, TEXT("Object %s already exists with different class %s. Moving object and recreating."), *ObjectName, *ExistingObjectWithDifferentClass->GetClass()->GetName());
+			ExistingObjectWithDifferentClass->Rename(nullptr, GetTransientPackage(), REN_DontCreateRedirectors);
+		}
 		//Construct new object if we cannot otherwise
 		const EObjectFlags ObjectLoadFlags = (EObjectFlags) ObjectJson->GetIntegerField(TEXT("ObjectFlags"));
 		
