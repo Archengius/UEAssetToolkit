@@ -1,4 +1,4 @@
-#include "Toolkit/AssetTypeGenerator/BlueprintGenerator.h"
+﻿#include "Toolkit/AssetTypeGenerator/BlueprintGenerator.h"
 #include "K2Node_FunctionEntry.h"
 #include "Dom/JsonObject.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -730,12 +730,11 @@ bool FBlueprintGeneratorUtils::CreateNewBlueprintFunctions(UBlueprint* Blueprint
 	}
 
 	//Populate a list of existing functions and events in the blueprint
-	TArray<FName> ObsoleteFunctionNames;
-	FunctionAndEventNodes.GetKeys(ObsoleteFunctionNames);
+	FunctionAndEventNodes.GetKeys(ObsoleteBlueprintFunctions);
 	
 	//Create new functions and make sure signature of existing ones matches
 	for (const FDeserializedFunction& Function : Functions) {
-		ObsoleteFunctionNames.Add(Function.FunctionName);
+		ObsoleteBlueprintFunctions.Remove(Function.FunctionName);
 
 		//Discard functions that are generated, e.g. ubergraph
 		if (IsFunctionNameGenerated(Function.FunctionName.ToString())) {
