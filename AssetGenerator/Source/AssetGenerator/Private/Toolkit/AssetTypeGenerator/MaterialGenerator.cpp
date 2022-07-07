@@ -504,7 +504,10 @@ void UMaterialGenerator::RemoveOutdatedMaterialLayoutNodes(UMaterial* Material, 
 		//Remove any expressions referencing textures that are no longer referenced, but keep them if we're doing soft merge
 		if (Expression->CanReferenceTexture() && !bOnlyRemoveParameterNodes) {
 			UObject* ReferencedTexture = Expression->GetReferencedTexture();
-			if (ReferencedTexture && LayoutChangeInfo.NoLongerReferencedTextures.Contains(ReferencedTexture)) {
+			bool IsParameterChanged = LayoutChangeInfo.TextureParameterValueChanges.ContainsByPredicate([Expression](const TParameterValueChange<UTexture*>& ParameterValueChange) {
+				return ParameterValueChange.ParameterName == Expression->GetParameterName();
+			});
+			if (ReferencedTexture && LayoutChangeInfo.NoLongerReferencedTextures.Contains(ReferencedTexture) && !IsParameterChanged) {
 				ExpressionsToRemove.Add(Expression);
 			}
 		}
