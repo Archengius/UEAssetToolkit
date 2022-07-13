@@ -314,3 +314,5 @@ void FSelectedAssetsStruct::FindUnknownAssetClasses(const FString& PackagePathFi
     });
 	UnknownAssetClasses.GenerateValueArray(OutUnknownClasses);
 }
+
+#undef LOCTEXT_NAMESPACE

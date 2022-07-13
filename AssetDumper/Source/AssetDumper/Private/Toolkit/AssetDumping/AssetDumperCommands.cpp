@@ -171,3 +171,5 @@ static FAutoConsoleCommand PrintUnknownAssetClassesCommand(
 	TEXT("dumper.PrintUnknownAssetClasses"),
 	TEXT("Prints a list of all unknown asset classes"),
 	FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateStatic(&PrintUnknownAssetClasses));
+	
+#undef LOCTEXT_NAMESPACE
