@@ -312,6 +312,8 @@ FName UAnimBlueprintGenerator::GetAssetClass() {
 	return UAnimBlueprint::StaticClass()->GetFName();
 }
 
+#undef LOCTEXT_NAMESPACE
+
 /*
 //Never generate __DelegateSignature methods, they are automatically handled
 //ExecuteUbergraph methods should also never be generated, since they have corresponding function entries

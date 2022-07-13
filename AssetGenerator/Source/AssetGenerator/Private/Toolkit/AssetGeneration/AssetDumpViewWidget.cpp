@@ -285,3 +285,5 @@ TSharedRef<SWidget> SAssetDumpTreeNodeRow::GenerateWidgetForColumn(const FName& 
             TreeNode->UpdateSelectedState(bIsChecked, false);
         });
 }
+
+#undef LOCTEXT_NAMESPACE

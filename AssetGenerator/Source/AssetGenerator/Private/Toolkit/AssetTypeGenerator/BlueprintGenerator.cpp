@@ -1047,3 +1047,5 @@ void FBlueprintGeneratorUtils::ResetNodeDisabledState(UEdGraphNode* GraphNode) {
 	GraphNode->bCommentBubbleVisible = false;
 	GraphNode->NodeComment = TEXT("");
 }
+
+#undef LOCTEXT_NAMESPACE

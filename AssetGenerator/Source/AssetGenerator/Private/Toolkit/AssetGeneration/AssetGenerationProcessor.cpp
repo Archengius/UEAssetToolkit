@@ -313,7 +313,7 @@ void FAssetGenerationProcessor::OnAssetGenerationStarted() {
 	//Do not spawn notifications while we're running commandlet
 	if (!IsRunningCommandlet()) {
 		FNotificationInfo NotificationInfo = FNotificationInfo(LOCTEXT("AssetGenerator_Startup", "Asset Generation Starting Up..."));
-		NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic([](){ FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("OutputLog"))); });
+		NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic([](){ FGlobalTabmanager::Get()->TryInvokeTab(FName(TEXT("OutputLog"))); });
 		NotificationInfo.HyperlinkText = LOCTEXT("ShowMessageLogHyperlink", "Show Output Log");
 		NotificationInfo.bFireAndForget = false;
 		
@@ -479,3 +479,5 @@ bool FAssetGenerationProcessor::IsTickableWhenPaused() const {
 bool FAssetGenerationProcessor::IsTickableInEditor() const {
 	return true;
 }
+
+#undef LOCTEXT_NAMESPACE
