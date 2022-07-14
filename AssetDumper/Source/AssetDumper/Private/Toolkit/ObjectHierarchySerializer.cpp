@@ -331,6 +331,7 @@ void UObjectHierarchySerializer::FlushPropertiesIntoObject(const int32 ObjectInd
 	check(Object);
 	
 	const TSharedPtr<FJsonObject> ObjectData = this->SerializedObjects.FindChecked(ObjectIndex);
+	if (ObjectData->Values.Num() == 0) return; // If the object entry is empty, ignore
 
 	checkf(!this->LoadedObjects.Contains(ObjectIndex), TEXT("Cannot flush properties into already deserialized object"));
 	this->LoadedObjects.Add(ObjectIndex, Object);
