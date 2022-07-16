@@ -83,7 +83,7 @@ void FAssetHelper::SerializeStruct(TSharedPtr<FJsonObject> OutObject, UStruct* S
 
         if (ChildField->IsA<FProperty>()) {
             FieldObject->SetStringField(TEXT("FieldKind"), TEXT("Property"));
-            SerializeProperty(FieldObject, Cast<FProperty>(ChildField), ObjectHierarchySerializer);
+            SerializeProperty(FieldObject, CastField<FProperty>(ChildField), ObjectHierarchySerializer);
         } else {
             checkf(0, TEXT("Unsupported ChildProperties object type: %s"), *ChildField->GetClass()->GetName());
         }
@@ -173,7 +173,7 @@ void FAssetHelper::SerializeProperty(TSharedPtr<FJsonObject> OutObject, FPropert
         const int32 InterfaceClassIndex = ObjectHierarchySerializer->SerializeObject(InterfaceProperty->InterfaceClass);
         OutObject->SetNumberField(TEXT("InterfaceClass"), InterfaceClassIndex);
         
-    } else if (FMapProperty* MapProperty = Cast<FMapProperty>(Property)) {
+    } else if (FMapProperty* MapProperty = CastField<FMapProperty>(Property)) {
         //For map properties, we just serialize key property type and value property type
         const TSharedPtr<FJsonObject> KeyProperty = MakeShareable(new FJsonObject());
         SerializeProperty(KeyProperty, MapProperty->KeyProp, ObjectHierarchySerializer);
@@ -193,12 +193,12 @@ void FAssetHelper::SerializeProperty(TSharedPtr<FJsonObject> OutObject, FPropert
         SerializeProperty(ElementType, SetProperty->ElementProp, ObjectHierarchySerializer);
         OutObject->SetObjectField(TEXT("ElementType"), ElementType);
         
-    } else if (FSoftClassProperty* SoftClassProperty = Cast<FSoftClassProperty>(Property)) {
+    } else if (FSoftClassProperty* SoftClassProperty = CastField<FSoftClassProperty>(Property)) {
         //For soft class property, we serialize MetaClass
         const int32 MetaClassIndex = ObjectHierarchySerializer->SerializeObject(SoftClassProperty->MetaClass);
         OutObject->SetNumberField(TEXT("MetaClass"), MetaClassIndex);
     
-    } else if (FFieldPathProperty* FieldPathProperty = Cast<FFieldPathProperty>(Property)) {
+    } else if (FFieldPathProperty* FieldPathProperty = CastField<FFieldPathProperty>(Property)) {
         //Serialize field class
         OutObject->SetStringField(TEXT("PropertyClass"), FieldPathProperty->PropertyClass->GetName());
         

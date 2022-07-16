@@ -83,6 +83,12 @@ void UUserWidgetGenerator::FinalizeAssetCDO() {
 		}
 		WidgetBlueprint->Animations.Empty();
 
+		// Deserializing the animation will find these ones, so we move them to avoid that. The class will be regenerated afterwards anyway
+		UWidgetBlueprintGeneratedClass* GeneratedClass = Cast<UWidgetBlueprintGeneratedClass>(WidgetBlueprint->GeneratedClass);
+		for (UObject* AnimationObject : GeneratedClass->Animations) {
+			MoveToTransientPackageAndRename(AnimationObject);
+		}
+
 		//Deserialize new animations into the array directly
 		for (const TSharedPtr<FJsonValue>& Animation : Animations) {
 			UObject* AnimationObject = GetObjectSerializer()->DeserializeObject((int32) Animation->AsNumber());

@@ -673,7 +673,7 @@ UEdGraphNode* FKismetGraphDecompiler::CreateMulticastDelegateNode(TSubclassOf<UK
 
     //Resolve delegate property. Multicast delegate related nodes will only work with UMulticastDelegateProperties
     const FString PropertyName = LeftSideTerminal->AssociatedVarProperty;
-    FMulticastDelegateProperty* DelegateProperty = CastChecked<FMulticastDelegateProperty>(ContextTerminalClassType->FindPropertyByName(*PropertyName));
+    FMulticastDelegateProperty* DelegateProperty = CastFieldChecked<FMulticastDelegateProperty>(ContextTerminalClassType->FindPropertyByName(*PropertyName));
     
     //Allocate node of the class passed as the argument
     UK2Node_BaseMCDelegate* DelegateNode = Cast<UK2Node_BaseMCDelegate>(
