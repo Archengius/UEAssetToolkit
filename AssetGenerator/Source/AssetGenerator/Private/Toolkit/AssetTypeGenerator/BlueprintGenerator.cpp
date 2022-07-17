@@ -924,10 +924,13 @@ bool FBlueprintGeneratorUtils::CreateBlueprintVariablesForProperties(UBlueprint*
 			check(FunctionEntries.Num());
 
 			const FString DelegateSignatureFunctionName = FString::Printf(TEXT("%s%s"), *VariableDescription->VarName.ToString(), HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX);
-			const FDeserializedFunction& DelegateSignature = Functions.FindChecked(*DelegateSignatureFunctionName);
+			// TODO: In AnimBPs this map can be empty (as functions aren't generated into the JSON yet) so causes a crash - is this a proper fix?
+			if (Functions.Num() != 0) {
+				const FDeserializedFunction& DelegateSignature = Functions.FindChecked(*DelegateSignatureFunctionName);
 			
-			if (SetFunctionEntryParameters(FunctionEntries[0], DelegateSignature, true)) {
-				bChangedProperties = true;
+				if (SetFunctionEntryParameters(FunctionEntries[0], DelegateSignature, true)) {
+					bChangedProperties = true;
+				}	
 			}
 		}
 	}
