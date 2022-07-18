@@ -83,7 +83,7 @@ void UAssetTypeGenerator::ConstructAssetAndPackage() {
 	} else {
 		//Package already exist, reuse it while making sure out asset is contained within
 		UObject* AssetObject = FindObject<UObject>(ExistingPackage, *AssetName.ToString());
-		if (AssetObject == NULL) return; // TODO: Yes, I know this is a horrible hackfix, but it does the job for the 2 out of 5k assets that have this weird, inconsistant problem
+		if (AssetObject == NULL) return; // TODO: Yes, I know this is a horrible hackfix, but it seems to mostly work. Needs a proper fix though.
 
 		//We need to verify package exists and provide meaningful error message, so user knows what is wrong
 		checkf(AssetObject, TEXT("Existing package %s does not contain an asset named %s, requested by asset dump"), *PackageName.ToString(), *AssetName.ToString());
@@ -151,7 +151,8 @@ FGeneratorStateAdvanceResult UAssetTypeGenerator::AdvanceGenerationState() {
 		this->FinalizeAssetCDO();
 	}
 	if (CurrentStage == EAssetGenerationStage::PRE_FINSHED) {
-		this->PreFinishAssetGeneration();
+		// TODO: Hackfix on top of previous hackfix, does the job though. Needs a better solution.
+		if (AssetObject != NULL) this->PreFinishAssetGeneration();
 	}
 		
 	//Increment current generation stage
