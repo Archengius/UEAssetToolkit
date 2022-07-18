@@ -7,7 +7,11 @@
 #include "Toolkit/ObjectHierarchySerializer.h"
 
 void UTexture2DGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(
+#if ENGINE_MINOR_VERSION < 26
+	nullptr, 
+#endif
+*GetPackageName().ToString());
 	UTexture2D* NewTexture = NewObject<UTexture2D>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewTexture);
 	

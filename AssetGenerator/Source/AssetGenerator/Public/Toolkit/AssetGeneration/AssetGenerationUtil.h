@@ -38,6 +38,7 @@ public:
 	TArray<FDeserializedProperty> AllProperties;
 	TArray<FDeserializedProperty> Parameters;
 	FDeserializedProperty ReturnValue;
+	
 
 	bool bIsUberGraphFunction;
 	bool bIsDelegateSignatureFunction;

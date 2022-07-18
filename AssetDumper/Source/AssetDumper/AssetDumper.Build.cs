@@ -12,8 +12,11 @@ public class AssetDumper : ModuleRules
     public AssetDumper(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        
+#if UE_4_24_OR_LATER
         bLegacyPublicIncludePaths = false;
         ShadowVariableWarningLevel = WarningLevel.Off;
+#endif 
 
         PublicDependencyModuleNames.AddRange(new[] {
 	        "Core", 

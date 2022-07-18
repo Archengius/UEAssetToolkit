@@ -2,8 +2,9 @@
 #include "FileHelpers.h"
 #include "Toolkit/AssetGeneration/AssetDumpViewWidget.h"
 #include "Toolkit/AssetGeneration/AssetGenerationProcessor.h"
-#include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetRegistryModule.h"
 #include "ShaderCompiler.h"
+#include "AssetRegistry/Private/AssetRegistry.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Toolkit/AssetGeneration/AssetGenerationUtil.h"
 
@@ -52,6 +53,13 @@ UAssetGeneratorCommandlet::UAssetGeneratorCommandlet() {
 	HelpUsage = TEXT("assetgenerator -DumpDirectory=Path/To/Directory [-ForceGeneratePackageNames=ForceGeneratePackageNames.txt] [-BlacklistPackageNames=BlacklistPackageNames.txt] [-AssetClassWhitelist=Class1,Class2] [-NoRefresh] [-PublicProject]");
 	ShowErrorCount = false;
 }
+
+UAssetRegistryImpl& UAssetGeneratorCommandlet::Get()
+{
+	FAssetRegistryModule& Module = FModuleManager::GetModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	return static_cast<UAssetRegistryImpl&>(Module.Get());
+}
+
 
 int32 UAssetGeneratorCommandlet::Main(const FString& Params) {
 	TArray<FString> Tokens, Switches;
@@ -212,9 +220,12 @@ int32 UAssetGeneratorCommandlet::Main(const FString& Params) {
 
 	//Synchronize asset registry state with the current assets we have on the disk
 	ClearEmptyGamePackagesLoadedDuringDisregardGC();
+#if ENGINE_MINOR_VERSION > 26
 	IAssetRegistry::GetChecked().SearchAllAssets(true);
+#else
+	Get().SearchAllAssets(true);
+#endif 
 	ProcessDeferredCommands();
-
 	FAssetGeneratorGCController AssetGeneratorGCController{};
 	AssetGeneratorGCController.ConditionallyCollectGarbage();
 
@@ -266,10 +277,13 @@ int32 UAssetGeneratorCommandlet::Main(const FString& Params) {
 		}
 		AssetGeneratorGCController.ConditionallyCollectGarbage();
 	}
-
-	//Synchronize asset registry state with all of the new packages we created
-	IAssetRegistry::GetChecked().SearchAllAssets(true);
 	
+	//Synchronize asset registry state with all of the new packages we created
+#if ENGINE_MINOR_VERSION > 26
+	IAssetRegistry::GetChecked().SearchAllAssets(true);
+#else
+	Get().SearchAllAssets(true);
+#endif 
 	UE_LOG(LogAssetGeneratorCommandlet, Display, TEXT("Asset generation finished successfully"));
 	return 0;
 }
@@ -285,6 +299,8 @@ void UAssetGeneratorCommandlet::ProcessDeferredCommands() {
 	GEngine->DeferredCommands.Empty();
 }
 
+
+
 void UAssetGeneratorCommandlet::ClearEmptyGamePackagesLoadedDuringDisregardGC() {
 	//Some packages get loaded through the config system during the initial load, which then
 	//marks them as GC disregarded, so they end up being loaded as empty rooted packages when actual referenced
@@ -297,7 +313,11 @@ void UAssetGeneratorCommandlet::ClearEmptyGamePackagesLoadedDuringDisregardGC() 
 		}
 		
 		int32 ExistingObjectsNum = 0;
+#if ENGINE_MINOR_VERSION > 26
 		ForEachObjectWithPackage(Package, [&](UObject* Object){
+#else
+			ForEachObjectWithOuter(Package, [&](UObject* Object){
+#endif				
 			ExistingObjectsNum++;
 			return false;
 		});

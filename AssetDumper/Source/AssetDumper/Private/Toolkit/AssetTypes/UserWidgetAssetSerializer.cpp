@@ -22,8 +22,14 @@ void UUserWidgetAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext
     TArray<FName> GeneratedVariableNames;
     UBlueprintAssetSerializer::CollectGeneratedVariables(Asset, GeneratedVariableNames);
 
+
+    
     //Also append widget tree generated variables
+#if ENGINE_MINOR_VERSION > 26
     Asset->GetWidgetTreeArchetype()->ForEachWidget([&](const UWidget* Widget){
+#else
+    Asset->WidgetTree->ForEachWidget([&](const UWidget* Widget){
+#endif 
         bool bIsVariable = Widget->bIsVariable;
          bIsVariable |= Asset->Bindings.ContainsByPredicate([&Widget] (const FDelegateRuntimeBinding& Binding) {
              return Binding.ObjectName == Widget->GetName();
