@@ -707,7 +707,7 @@ void UMaterialGenerator::RemoveMaterialComment(UMaterial* Material, UMaterialExp
 }
 
 void UMaterialGenerator::DetectMaterialExpressionChanges(const FMaterialCachedExpressionData& OldData, const FMaterialCachedExpressionData& NewData, FMaterialLayoutChangeInfo& ChangeInfo) {
-#if ENGINE_MINOR_VERSION > 26
+#if ENGINE_MINOR_VERSION >= 26
 	DetectMaterialParameterChanges(OldData.Parameters, NewData.Parameters, ChangeInfo);
 #endif
 	for (UObject* Element : NewData.ReferencedTextures) {
@@ -809,7 +809,7 @@ bool UMaterialGenerator::IsMaterialQualityNodeUsed(const FMaterialCachedExpressi
 	return false;
 }
 
-#if ENGINE_MINOR_VERSION > 26
+#if ENGINE_MINOR_VERSION >= 26
 void UMaterialGenerator::DetectMaterialParameterChanges(const FMaterialCachedParameters& OldParams, const FMaterialCachedParameters& NewParams, FMaterialLayoutChangeInfo& ChangeInfo) {
 	TSet<FName> AllParameterNames;
 	TMap<FName, FIndexedParameterInfo> OldParameters;

@@ -25,7 +25,7 @@ void UUserWidgetAssetSerializer::SerializeAsset(TSharedRef<FSerializationContext
 
     
     //Also append widget tree generated variables
-#if ENGINE_MINOR_VERSION > 26
+#if ENGINE_MINOR_VERSION >= 26
     Asset->GetWidgetTreeArchetype()->ForEachWidget([&](const UWidget* Widget){
 #else
     Asset->WidgetTree->ForEachWidget([&](const UWidget* Widget){
