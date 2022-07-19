@@ -104,7 +104,16 @@ struct FIndexedParameterInfo {
 UCLASS(MinimalAPI)
 class UMaterialGenerator : public UAssetTypeGenerator {
 	GENERATED_BODY()
+public:
+	static const int32 NumMaterialRuntimeParameterTypes = (int32)EMaterialParameterType::Count;
+	
+	UPROPERTY()
+	FMaterialCachedParameterEntry RuntimeEntries[NumMaterialRuntimeParameterTypes];
+	
 protected:
+	
+	const FMaterialCachedParameterEntry& GetParameterTypeEntry(EMaterialParameterType Type) const { return RuntimeEntries[static_cast<int32>(Type)]; }
+	
 	virtual void PostInitializeAssetGenerator() override;
 	virtual void CreateAssetPackage() override final;
 	virtual void OnExistingPackageLoaded() override final;

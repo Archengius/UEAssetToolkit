@@ -5,7 +5,11 @@
 #include "Toolkit/ObjectHierarchySerializer.h"
 
 void UStringTableGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(
+#if ENGINE_MINOR_VERSION < 26
+	nullptr, 
+#endif
+		*GetPackageName().ToString());
 	UStringTable* NewStringTable = NewObject<UStringTable>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewStringTable);
 	

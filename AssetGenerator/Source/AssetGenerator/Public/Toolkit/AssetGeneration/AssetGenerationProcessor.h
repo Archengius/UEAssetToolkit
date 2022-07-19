@@ -66,6 +66,7 @@ class ASSETGENERATOR_API FAssetGenerationProcessor : public FTickableGameObject,
 private:
 	static TSharedPtr<FAssetGenerationProcessor> ActiveAssetGenerator;
 	
+	
 	/** Configuration for the asset generator */
 	FAssetGeneratorConfiguration Configuration;
 	/** Package name mapping to it's active asset generator */

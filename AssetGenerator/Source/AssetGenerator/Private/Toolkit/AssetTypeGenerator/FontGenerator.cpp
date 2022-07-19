@@ -18,7 +18,11 @@ void UFontGenerator::ReadGlyphDataFromFile(FFontGlyphData& GlyphData) const {
 }
 
 void UFontGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(
+#if ENGINE_MINOR_VERSION < 26
+	nullptr, 
+#endif
+*GetPackageName().ToString());
 	UFont* NewFont = NewObject<UFont>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewFont);
 
