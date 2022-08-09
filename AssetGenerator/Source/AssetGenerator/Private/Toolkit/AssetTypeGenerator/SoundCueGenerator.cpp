@@ -46,7 +46,11 @@ FName USoundCueGenerator::GetAssetClass() {
 }
 
 void USoundCueGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(
+#if ENGINE_MINOR_VERSION < 26
+	nullptr, 
+#endif
+*GetPackageName().ToString());
 	USoundCue* SoundCue = NewObject<USoundCue>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, SoundCue);
 

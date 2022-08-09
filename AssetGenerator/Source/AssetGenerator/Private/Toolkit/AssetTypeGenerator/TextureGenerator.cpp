@@ -4,7 +4,11 @@
 #include "Toolkit/ObjectHierarchySerializer.h"
 
 void UTextureGenerator::CreateAssetPackage() {
-	UPackage* Package = CreatePackage(*GetPackageName().ToString());
+	UPackage* Package = CreatePackage(
+#if ENGINE_MINOR_VERSION < 26
+	nullptr, 
+#endif
+*GetPackageName().ToString());
 	UTexture* Texture = NewObject<UTexture>(Package, GetTextureClass(), GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(Package, Texture);
 
