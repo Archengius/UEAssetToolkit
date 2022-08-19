@@ -1,4 +1,4 @@
-﻿#include "Toolkit/AssetTypeGenerator/BlueprintGenerator.h"
+#include "Toolkit/AssetTypeGenerator/BlueprintGenerator.h"
 #include "K2Node_FunctionEntry.h"
 #include "Dom/JsonObject.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -213,11 +213,14 @@ void UBlueprintGenerator::FinalizeAssetCDO() {
 	
 	if (bScriptObjectChanged) {
 		//Trash out old SimpleConstructionScript so we can straight up replace it with the new one
-		MoveToTransientPackageAndRename(Blueprint->SimpleConstructionScript);
+		if (Blueprint->SimpleConstructionScript != NULL) {
+			MoveToTransientPackageAndRename(Blueprint->SimpleConstructionScript);
+		}
 
 		//Deserialize new SCS, update the flags accordingly and assign it to the blueprint
 		//There is no need to duplicate it because it's owner is actually supposed to be the BPGC (for whatever reason)
 		UObject* SimpleConstructionScript = GetObjectSerializer()->DeserializeObject(SimpleConstructionScriptIndex);
+		if (SimpleConstructionScript == NULL) return;
 		SimpleConstructionScript->SetFlags(RF_Transactional);
 		Blueprint->SimpleConstructionScript = CastChecked<USimpleConstructionScript>(SimpleConstructionScript);
 		
@@ -241,6 +244,7 @@ UClass* UBlueprintGenerator::GetFallbackParentClass() const {
 }
 
 void UBlueprintGenerator::PopulateStageDependencies(TArray<FPackageDependency>& OutDependencies) const {
+	if (GetAssetData()->GetBoolField(TEXT("SkipDependecies"))) return;
 	if (GetCurrentStage() == EAssetGenerationStage::CONSTRUCTION) {
 		//For construction we want parent class to be FULLY generated
 		TArray<FString> ReferencedPackages;
@@ -926,7 +930,7 @@ bool FBlueprintGeneratorUtils::CreateBlueprintVariablesForProperties(UBlueprint*
 			TArray<UK2Node_FunctionEntry*> FunctionEntries;
 			DelegateSignatureGraph->GetNodesOfClass(FunctionEntries);
 			check(FunctionEntries.Num());
-
+			
 			const FString DelegateSignatureFunctionName = FString::Printf(TEXT("%s%s"), *VariableDescription->VarName.ToString(), HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX);
 			// TODO: In AnimBPs this map can be empty (as functions aren't generated into the JSON yet) so causes a crash - is this a proper fix?
 			if (Functions.Num() != 0) {

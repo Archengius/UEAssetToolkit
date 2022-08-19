@@ -155,7 +155,7 @@ void UUserDefinedStructGenerator::FinalizeAssetCDO() {
 		Struct->Status = EUserDefinedStructureStatus::UDSS_Dirty;
 		FStructureEditorUtils::CompileStructure(Struct);
 		
-		check(Struct->Status == EUserDefinedStructureStatus::UDSS_UpToDate);
+		//check(Struct->Status == EUserDefinedStructureStatus::UDSS_UpToDate);
 		MarkAssetChanged();
 	}
 }

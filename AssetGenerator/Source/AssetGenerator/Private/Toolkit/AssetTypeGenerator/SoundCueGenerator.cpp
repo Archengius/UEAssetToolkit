@@ -56,24 +56,22 @@ void USoundCueGenerator::CreateAssetPackage() {
 
 	SoundCue->GetGraph()->Modify();
 	SoundCue->Modify();
-
+	
 	const FString TextToImport = GetAssetData()->GetStringField(TEXT("SoundCueGraph")).ReplaceEscapedCharWithChar();
 	
 	// Import the nodes
 	TSet<UEdGraphNode*> PastedNodes;
 	FEdGraphUtilities::ImportNodesFromText(SoundCue->GetGraph(), TextToImport, /*out*/ PastedNodes);
-
-
-
+	
 	for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
 	{
 		UEdGraphNode* Node = *It;
-
+	
 		if (USoundCueGraphNode* SoundGraphNode = Cast<USoundCueGraphNode>(Node))
 		{
 			SoundCue->AllNodes.Add(SoundGraphNode->SoundNode);
 		}
-
+	
 		if (Node->NodePosX == 0 && Node->NodePosY == 0) {
 			for (UEdGraphNode* node : SoundCue->GetGraph()->Nodes)
 			{
@@ -85,11 +83,11 @@ void USoundCueGenerator::CreateAssetPackage() {
 		}
 		Node->NodePosX = Node->NodePosX - 300;
 		Node->SnapToGrid(SNodePanel::GetSnapGridSize());
-
+	
 		// Give new node a different Guid from the old one
 		Node->CreateNewGuid();
 	}
-
+	
 	// Force new pasted SoundNodes to have same connections as graph nodes
 	SoundCue->CompileSoundNodesFromGraphNodes();
 
@@ -98,7 +96,6 @@ void USoundCueGenerator::CreateAssetPackage() {
 
 	SoundCue->PostEditChange();
 	SoundCue->MarkPackageDirty();
-
-
+	
 	PopulateSimpleAssetWithData(SoundCue);
 }

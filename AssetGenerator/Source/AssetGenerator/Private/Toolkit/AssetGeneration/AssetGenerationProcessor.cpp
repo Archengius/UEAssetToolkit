@@ -148,6 +148,9 @@ void FAssetGenerationProcessor::InitializeAssetGeneratorInternal(UAssetTypeGener
 
 	//Associate it with the package in question and refresh dependencies
 	this->AssetGenerators.Add(Generator->GetPackageName(), Generator);
+	if(!this->PackagesToGenerate.Contains(Generator->GetPackageName())) {
+		this->Statistics.TotalAssetPackages++;
+	}
 	RefreshGeneratorDependencies(Generator);
 }
 
@@ -419,7 +422,7 @@ void FAssetGenerationProcessor::PrintStateIntoTheLog() {
 	if (AlreadyGeneratedPackages.Num()) {
 		UE_LOG(LogAssetGenerator, Verbose, TEXT("Packages already generated: "));
 		for (const FName& PackageName : AlreadyGeneratedPackages) {
-			UE_LOG(LogAssetGenerator, Verbose, TEXT(" - %s"), *PackageName.ToString());
+			UE_LOG(LogAssetGenerator, VeryVerbose, TEXT(" - %s"), *PackageName.ToString());
 		}
 	}
 
