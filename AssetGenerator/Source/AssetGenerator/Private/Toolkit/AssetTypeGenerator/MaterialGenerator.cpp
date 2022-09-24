@@ -562,9 +562,18 @@ void UMaterialGenerator::CleanupStubMaterialNodes(UMaterial* Material) {
 	}
 }
 
+void DisconnectIfExpressionMissing(FExpressionInput& Input, UMaterial* Material) {
+	if (Input.Expression && !Material->Expressions.Contains(Input.Expression)) {
+		Input.Expression = nullptr;
+	}
+}
+
 void UMaterialGenerator::TryConnectBasicMaterialPins(UMaterial* Material) {
 	FExpressionInput& BaseColorInput = Material->BaseColor;
 	FExpressionInput& NormalInput = Material->Normal;
+
+	DisconnectIfExpressionMissing(BaseColorInput, Material);
+	DisconnectIfExpressionMissing(NormalInput, Material);
 
 	for (UMaterialExpression* Expression : Material->Expressions) {
 		if (UMaterialExpressionTextureSample* TextureSample = Cast<UMaterialExpressionTextureSample>(Expression)) {
