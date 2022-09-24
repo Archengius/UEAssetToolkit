@@ -55,6 +55,8 @@ private:
 
     TSharedPtr<FStructSerializer> FallbackStructSerializer;
     TMap<UScriptStruct*, TSharedPtr<FStructSerializer>> StructSerializers;
+
+    bool SerializeTransient;
 public:
     UPropertySerializer();
     
@@ -63,6 +65,8 @@ public:
 
     void AddStructSerializer(UScriptStruct* Struct, const TSharedPtr<FStructSerializer>& Serializer);
     
+    void SetSerializeTransient(bool InSerializeTransient) { SerializeTransient = InSerializeTransient; }
+
     /** Checks whenever we should serialize property in question at all */
     bool ShouldSerializeProperty(FProperty* Property) const;
 

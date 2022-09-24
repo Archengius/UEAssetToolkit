@@ -96,6 +96,8 @@ UPropertySerializer::UPropertySerializer() {
 	
 	this->StructSerializers.Add(DateTimeStruct, MakeShared<FDateTimeSerializer>());
 	this->StructSerializers.Add(TimespanStruct, MakeShared<FTimespanSerializer>());
+
+	this->SerializeTransient = false;
 }
 
 void UPropertySerializer::DeserializePropertyValue(FProperty* Property, const TSharedRef<FJsonValue>& JsonValue, void* Value) {
@@ -297,7 +299,7 @@ void UPropertySerializer::AddStructSerializer(UScriptStruct* Struct, const TShar
 
 bool UPropertySerializer::ShouldSerializeProperty(FProperty* Property) const {
 	//skip transient properties
-    if (Property->HasAnyPropertyFlags(CPF_Transient)) {
+    if (Property->HasAnyPropertyFlags(CPF_Transient) && !SerializeTransient) {
         return false;
     }
 	//Skip editor only properties altogether
@@ -712,7 +714,7 @@ bool UPropertySerializer::ComparePropertyValuesInner(FProperty* Property, const 
 
 	if (const FTextProperty* TextProperty = CastField<const FTextProperty>(Property)) {
 		// FTextProperty::Identical compares the CultureInvariant flag, and sometimes empty deserialized texts don't have it while the exiting texts do
-		if (TextProperty->GetPropertyValue(CurrentValue).IsEmpty() && TextProperty->GetPropertyValue(DeserializedElement.GetObjAddress()).IsEmpty())
+		if(TextProperty->GetPropertyValue(CurrentValue).IsEmpty() && TextProperty->GetPropertyValue(DeserializedElement.GetObjAddress()).IsEmpty())
 			return true;
 	}
 	

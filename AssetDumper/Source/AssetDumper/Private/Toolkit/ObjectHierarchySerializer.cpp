@@ -223,13 +223,12 @@ bool UObjectHierarchySerializer::CompareObjectsWithContext(const int32 ObjectInd
 
 		if (ObjectIndex == INDEX_NONE)
 			return false;
-
+		
 		// If the object is not found, deserializing it would still be NULL
 		const TSharedPtr<FJsonObject>& ObjectJson = SerializedObjects.FindChecked(ObjectIndex);
 		const FString ObjectType = ObjectJson->GetStringField(TEXT("Type"));
 
 		return ObjectType == TEXT("Import") && DeserializeObject(ObjectIndex) == NULL;
-		//return ObjectIndex == INDEX_NONE && Object == NULL;
 	}
 
 	//Return true if we have already compared this object, otherwise we will run into the recursion
@@ -523,6 +522,11 @@ UObject* UObjectHierarchySerializer::DeserializeExportedObject(int32 ObjectIndex
 		ConstructedObject = ExistingObject;
 		
 	} else {
+		UObject* ExistingObjectWithDifferentClass = StaticFindObjectFast(UObject::StaticClass(), OuterObject, *ObjectName);
+		if (ExistingObjectWithDifferentClass != nullptr) {
+			UE_LOG(LogObjectHierarchySerializer, Warning, TEXT("Object %s already exists with different class %s. Moving object and recreating."), *ObjectName, *ExistingObjectWithDifferentClass->GetClass()->GetName());
+			ExistingObjectWithDifferentClass->Rename(nullptr, GetTransientPackage(), REN_DontCreateRedirectors);
+		}
 		//Construct new object if we cannot otherwise
 		const EObjectFlags ObjectLoadFlags = (EObjectFlags) ObjectJson->GetIntegerField(TEXT("ObjectFlags"));
 		

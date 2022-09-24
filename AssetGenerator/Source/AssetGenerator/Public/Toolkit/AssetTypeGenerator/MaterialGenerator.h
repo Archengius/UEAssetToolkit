@@ -105,7 +105,7 @@ UCLASS(MinimalAPI)
 class UMaterialGenerator : public UAssetTypeGenerator {
 	GENERATED_BODY()
 public:
-	static const int32 NumMaterialRuntimeParameterTypes = (int32)EMaterialParameterType::Count;
+	static const int32 NumMaterialRuntimeParameterTypes = (int32)EMaterialParameterType::RuntimeCount;
 	
 	UPROPERTY()
 	FMaterialCachedParameterEntry RuntimeEntries[NumMaterialRuntimeParameterTypes];

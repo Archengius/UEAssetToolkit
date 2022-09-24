@@ -148,6 +148,9 @@ void FAssetGenerationProcessor::InitializeAssetGeneratorInternal(UAssetTypeGener
 
 	//Associate it with the package in question and refresh dependencies
 	this->AssetGenerators.Add(Generator->GetPackageName(), Generator);
+	if(!this->PackagesToGenerate.Contains(Generator->GetPackageName())) {
+		this->Statistics.TotalAssetPackages++;
+	}
 	RefreshGeneratorDependencies(Generator);
 }
 

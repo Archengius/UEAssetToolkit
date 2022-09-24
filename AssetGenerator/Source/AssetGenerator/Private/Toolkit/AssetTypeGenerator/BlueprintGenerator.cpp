@@ -213,7 +213,9 @@ void UBlueprintGenerator::FinalizeAssetCDO() {
 	
 	if (bScriptObjectChanged) {
 		//Trash out old SimpleConstructionScript so we can straight up replace it with the new one
-		MoveToTransientPackageAndRename(Blueprint->SimpleConstructionScript);
+		if(Blueprint->SimpleConstructionScript != NULL) {
+			MoveToTransientPackageAndRename(Blueprint->SimpleConstructionScript);
+		}
 
 		//Deserialize new SCS, update the flags accordingly and assign it to the blueprint
 		//There is no need to duplicate it because it's owner is actually supposed to be the BPGC (for whatever reason)
@@ -732,12 +734,11 @@ bool FBlueprintGeneratorUtils::CreateNewBlueprintFunctions(UBlueprint* Blueprint
 	}
 
 	//Populate a list of existing functions and events in the blueprint
-	TArray<FName> ObsoleteFunctionNames;
-	FunctionAndEventNodes.GetKeys(ObsoleteFunctionNames);
+	FunctionAndEventNodes.GetKeys(ObsoleteBlueprintFunctions);
 	
 	//Create new functions and make sure signature of existing ones matches
 	for (const FDeserializedFunction& Function : Functions) {
-		ObsoleteFunctionNames.Add(Function.FunctionName);
+		ObsoleteBlueprintFunctions.Remove(Function.FunctionName);
 
 		//Discard functions that are generated, e.g. ubergraph
 		if (IsFunctionNameGenerated(Function.FunctionName.ToString())) {

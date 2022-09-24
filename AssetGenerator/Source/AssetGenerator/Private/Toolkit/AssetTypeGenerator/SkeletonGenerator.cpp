@@ -216,6 +216,9 @@ bool FSkeletonCompareData::ApplySkeletonChanges(USkeleton* Skeleton) const {
 		Skeleton->RemoveVirtualBones(VirtualBonesToRemove);
 	}
 
+	//REBUILD REF SKELETON TO MAKE SURE FinalRefBoneInfo IS UP TO DATE
+	ExistingReferenceSkeleton.RebuildRefSkeleton(Skeleton, true);
+	
 	//ADD NEW RETARGET SOURCES AND MAKE SURE EXISTING ONES ARE UP TO DATE
 	for (const TPair<FName, FReferencePose>& NewReferencePose : AnimRetargetSources) {
 		const FReferencePose& NewPose = NewReferencePose.Value;
@@ -236,7 +239,7 @@ bool FSkeletonCompareData::ApplySkeletonChanges(USkeleton* Skeleton) const {
 			Skeleton->AnimRetargetSources.Add(RetargetedReferencePose.PoseName, RetargetedReferencePose);
 			bModifiedSkeleton = true;
 		} else {
-			FReferencePose ExistingPose = Skeleton->AnimRetargetSources.FindChecked(NewPose.PoseName);
+			FReferencePose& ExistingPose = Skeleton->AnimRetargetSources.FindChecked(NewPose.PoseName);
 
 			for (int32 i = 0; i < ExistingPose.ReferencePose.Num(); i++) {
 				const FName BoneName = ExistingReferenceSkeleton.GetBoneName(i);

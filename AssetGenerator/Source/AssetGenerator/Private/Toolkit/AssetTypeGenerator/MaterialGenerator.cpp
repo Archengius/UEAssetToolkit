@@ -509,7 +509,10 @@ void UMaterialGenerator::RemoveOutdatedMaterialLayoutNodes(UMaterial* Material, 
 		//Remove any expressions referencing textures that are no longer referenced, but keep them if we're doing soft merge
 		if (Expression->CanReferenceTexture() && !bOnlyRemoveParameterNodes) {
 			UObject* ReferencedTexture = Expression->GetReferencedTexture();
-			if (ReferencedTexture && LayoutChangeInfo.NoLongerReferencedTextures.Contains(ReferencedTexture)) {
+			bool IsParameterChanged = LayoutChangeInfo.TextureParameterValueChanges.ContainsByPredicate([Expression](const TParameterValueChange<UTexture*>& ParameterValueChange) {
+				return ParameterValueChange.ParameterName == Expression->GetParameterName();
+			});
+			if (ReferencedTexture && LayoutChangeInfo.NoLongerReferencedTextures.Contains(ReferencedTexture) && !IsParameterChanged) {
 				ExpressionsToRemove.Add(Expression);
 			}
 		}
@@ -559,10 +562,19 @@ void UMaterialGenerator::CleanupStubMaterialNodes(UMaterial* Material) {
 	}
 }
 
+void DisconnectIfExpressionMissing(FExpressionInput& Input, UMaterial* Material) {
+	if (Input.Expression && !Material->Expressions.Contains(Input.Expression)) {
+		Input.Expression = nullptr;
+	}
+}
+
 void UMaterialGenerator::TryConnectBasicMaterialPins(UMaterial* Material) {
 	FExpressionInput& BaseColorInput = Material->BaseColor;
 	FExpressionInput& NormalInput = Material->Normal;
 
+	DisconnectIfExpressionMissing(BaseColorInput, Material);
+	DisconnectIfExpressionMissing(NormalInput, Material);
+	
 	for (UMaterialExpression* Expression : Material->Expressions) {
 		if (UMaterialExpressionTextureSample* TextureSample = Cast<UMaterialExpressionTextureSample>(Expression)) {
 			if ((TextureSample->SamplerType == SAMPLERTYPE_Color || TextureSample->SamplerType == SAMPLERTYPE_LinearColor) && !BaseColorInput.IsConnected()) {

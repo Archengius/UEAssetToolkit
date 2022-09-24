@@ -9,7 +9,7 @@ void UAnimationMontageAssetSerializer::SerializeAsset(TSharedRef<FSerializationC
     BEGIN_ASSET_SERIALIZATION(UAnimMontage)
     
     DISABLE_SERIALIZATION(UAnimSequenceBase, RawCurveData)
-    check(Asset->RawCurveData.FloatCurves.Num() == 0);
+    // check(Asset->RawCurveData.FloatCurves.Num() == 0);
 
     SERIALIZE_ASSET_OBJECT
     END_ASSET_SERIALIZATION
@@ -18,3 +18,4 @@ void UAnimationMontageAssetSerializer::SerializeAsset(TSharedRef<FSerializationC
 FName UAnimationMontageAssetSerializer::GetAssetClass() const {
     return UAnimMontage::StaticClass()->GetFName();
 }
+    

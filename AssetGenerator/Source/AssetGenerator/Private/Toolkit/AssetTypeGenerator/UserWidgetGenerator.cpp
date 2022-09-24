@@ -1,4 +1,4 @@
-﻿#include "Toolkit/AssetTypeGenerator/UserWidgetGenerator.h"
+#include "Toolkit/AssetTypeGenerator/UserWidgetGenerator.h"
 #include "Blueprint/WidgetTree.h"
 #include "Channels/MovieSceneEvent.h"
 #include "Kismet2/KismetEditorUtilities.h"
