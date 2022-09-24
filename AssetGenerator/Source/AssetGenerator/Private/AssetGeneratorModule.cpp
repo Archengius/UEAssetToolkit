@@ -33,3 +33,5 @@ void FAssetGeneratorModule::ShutdownModule() {
 }
 
 IMPLEMENT_GAME_MODULE(FAssetGeneratorModule, AssetGenerator);
+
+#undef LOCTEXT_NAMESPACE

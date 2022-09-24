@@ -11,7 +11,11 @@
 #include "Toolkit/AssetGeneration/PublicProjectStubHelper.h"
 
 void USkeletalMeshGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(
+#if ENGINE_MINOR_VERSION < 26
+	nullptr, 
+#endif
+*GetPackageName().ToString());
 	USkeletalMesh* NewSkeletalMesh = ImportSkeletalMesh(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewSkeletalMesh);
 	

@@ -1,4 +1,4 @@
-﻿#include "Toolkit/AssetTypeGenerator/BlueprintGenerator.h"
+﻿#include "Toolkit/AssetTypeGenerator/AnimBlueprintGenerator.h"
 #include "K2Node_FunctionEntry.h"
 #include "Dom/JsonObject.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -15,10 +15,11 @@
 #include "Engine/SimpleConstructionScript.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Animation/AnimBlueprint.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
 
 #define LOCTEXT_NAMESPACE "AssetGenerator"
 
-UBlueprint* UBlueprintGenerator::CreateNewBlueprint(UPackage* Package, UClass* ParentClass) {
+UBlueprint* UAnimBlueprintGenerator::CreateNewBlueprint(UPackage* Package, UClass* ParentClass) {
 	EBlueprintType BlueprintType = BPTYPE_Normal;
 
 	if (ParentClass->HasAnyClassFlags(CLASS_Const)) {
@@ -30,9 +31,9 @@ UBlueprint* UBlueprintGenerator::CreateNewBlueprint(UPackage* Package, UClass* P
 	if (ParentClass == UInterface::StaticClass()) {
 		BlueprintType = BPTYPE_Interface;
 	}
-	return FKismetEditorUtilities::CreateBlueprint(ParentClass, Package, GetAssetName(), BlueprintType, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
+	return FKismetEditorUtilities::CreateBlueprint(ParentClass, Package, GetAssetName(), BlueprintType, UAnimBlueprint::StaticClass(), UAnimBlueprintGeneratedClass::StaticClass());
 }
-
+/*
 void UBlueprintGenerator::CreateAssetPackage() {
 	const int32 SuperStructIndex = GetAssetData()->GetIntegerField(TEXT("SuperStruct"));
 	UClass* ParentClass = Cast<UClass>(GetObjectSerializer()->DeserializeObject(SuperStructIndex));
@@ -84,8 +85,8 @@ void UBlueprintGenerator::OnExistingPackageLoaded() {
 	}
 	
 	PostConstructOrUpdateAsset(Blueprint);
-}
-
+}*/
+/*
 void UBlueprintGenerator::PostConstructOrUpdateAsset(UBlueprint* Blueprint) {
 	TArray<TSharedPtr<FJsonValue>> ImplementedInterfaces = GetAssetData()->GetArrayField(TEXT("Interfaces"));
 
@@ -213,9 +214,7 @@ void UBlueprintGenerator::FinalizeAssetCDO() {
 	
 	if (bScriptObjectChanged) {
 		//Trash out old SimpleConstructionScript so we can straight up replace it with the new one
-		if(Blueprint->SimpleConstructionScript != NULL) {
-			MoveToTransientPackageAndRename(Blueprint->SimpleConstructionScript);
-		}
+		MoveToTransientPackageAndRename(Blueprint->SimpleConstructionScript);
 
 		//Deserialize new SCS, update the flags accordingly and assign it to the blueprint
 		//There is no need to duplicate it because it's owner is actually supposed to be the BPGC (for whatever reason)
@@ -311,12 +310,15 @@ void UBlueprintGenerator::PopulateStageDependencies(TArray<FPackageDependency>& 
         	OutDependencies.Add(FPackageDependency{*PackageName, EAssetGenerationStage::CONSTRUCTION});
         }
 	}
+}*/
+
+FName UAnimBlueprintGenerator::GetAssetClass() {
+	return UAnimBlueprint::StaticClass()->GetFName();
 }
 
-FName UBlueprintGenerator::GetAssetClass() {
-	return UBlueprint::StaticClass()->GetFName();
-}
+#undef LOCTEXT_NAMESPACE
 
+/*
 //Never generate __DelegateSignature methods, they are automatically handled
 //ExecuteUbergraph methods should also never be generated, since they have corresponding function entries
 bool FBlueprintGeneratorUtils::IsFunctionNameGenerated(const FString& FunctionName) {
@@ -734,11 +736,12 @@ bool FBlueprintGeneratorUtils::CreateNewBlueprintFunctions(UBlueprint* Blueprint
 	}
 
 	//Populate a list of existing functions and events in the blueprint
-	FunctionAndEventNodes.GetKeys(ObsoleteBlueprintFunctions);
+	TArray<FName> ObsoleteFunctionNames;
+	FunctionAndEventNodes.GetKeys(ObsoleteFunctionNames);
 	
 	//Create new functions and make sure signature of existing ones matches
 	for (const FDeserializedFunction& Function : Functions) {
-		ObsoleteBlueprintFunctions.Remove(Function.FunctionName);
+		ObsoleteFunctionNames.Add(Function.FunctionName);
 
 		//Discard functions that are generated, e.g. ubergraph
 		if (IsFunctionNameGenerated(Function.FunctionName.ToString())) {
@@ -874,7 +877,7 @@ bool FBlueprintGeneratorUtils::CreateBlueprintVariablesForProperties(UBlueprint*
 			continue;
 		}
 		//Discard variables that didn't pass the provided property filter
-		if (!PropertyFilter(Property)) {
+		if (PropertyFilter(Property)) {
 			continue;
 		}
 		
@@ -929,13 +932,10 @@ bool FBlueprintGeneratorUtils::CreateBlueprintVariablesForProperties(UBlueprint*
 			check(FunctionEntries.Num());
 
 			const FString DelegateSignatureFunctionName = FString::Printf(TEXT("%s%s"), *VariableDescription->VarName.ToString(), HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX);
-			// TODO: In AnimBPs this map can be empty (as functions aren't generated into the JSON yet) so causes a crash - is this a proper fix?
-			if (Functions.Num() != 0) {
-				const FDeserializedFunction& DelegateSignature = Functions.FindChecked(*DelegateSignatureFunctionName);
+			const FDeserializedFunction& DelegateSignature = Functions.FindChecked(*DelegateSignatureFunctionName);
 			
-				if (SetFunctionEntryParameters(FunctionEntries[0], DelegateSignature, true)) {
-					bChangedProperties = true;
-				}	
+			if (SetFunctionEntryParameters(FunctionEntries[0], DelegateSignature, true)) {
+				bChangedProperties = true;
 			}
 		}
 	}
@@ -1055,5 +1055,4 @@ void FBlueprintGeneratorUtils::ResetNodeDisabledState(UEdGraphNode* GraphNode) {
 	GraphNode->bCommentBubbleVisible = false;
 	GraphNode->NodeComment = TEXT("");
 }
-
-#undef LOCTEXT_NAMESPACE
+*/

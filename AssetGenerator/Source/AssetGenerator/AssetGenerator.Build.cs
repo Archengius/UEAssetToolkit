@@ -7,8 +7,11 @@ public class AssetGenerator : ModuleRules
     public AssetGenerator(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        
+#if UE_4_24_OR_LATER
         bLegacyPublicIncludePaths = false;
         ShadowVariableWarningLevel = WarningLevel.Off;
+#endif     
         
         PublicDependencyModuleNames.AddRange(new[] {
             "Core", 
@@ -37,8 +40,14 @@ public class AssetGenerator : ModuleRules
             "Kismet",
             "WorkspaceMenuStructure",
             "PhysicsCore",
-            "DeveloperSettings", 
-            "MediaAssets"
+            "MediaAssets",
+            "AudioEditor",
+            "GraphEditor"
         });
+
+#if UE_4_26_OR_LATER
+	    PrivateDependencyModuleNames.Add("DeveloperSettings");
+#endif
+        
     }
 }

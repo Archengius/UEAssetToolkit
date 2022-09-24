@@ -26,6 +26,7 @@
 #include "VT/RuntimeVirtualTexture.h"
 #include "Engine/TextureCube.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2DArray.h"
+#include "MediaTexture.h"
 
 static const TArray<FName> ExcludedMaterialDumpProperties = {
 	//We cannot recompile game materials and add usages since we do not have their sources, so we ignore this value and force it to false
@@ -51,7 +52,11 @@ void UMaterialGenerator::PostInitializeAssetGenerator() {
 }
 
 void UMaterialGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(
+#if ENGINE_MINOR_VERSION < 26
+	nullptr, 
+#endif
+*GetPackageName().ToString());
 	UMaterial* Material = NewObject<UMaterial>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, Material);
 
@@ -240,7 +245,7 @@ void UMaterialGenerator::ConnectBasicParameterPinsIfPossible(UMaterial* Material
 }
 
 UClass* GetTextureSampleParameterClassForTexture(UTexture* Texture) {
-	if (Texture->IsA<UTexture2D>()) {
+	if (Texture->IsA<UTexture2D>() || Texture->IsA<UMediaTexture>()) {
 		return UMaterialExpressionTextureSampleParameter2D::StaticClass();
 	}
 	if (Texture->IsA<UTextureCube>()) {
@@ -714,8 +719,9 @@ void UMaterialGenerator::RemoveMaterialComment(UMaterial* Material, UMaterialExp
 }
 
 void UMaterialGenerator::DetectMaterialExpressionChanges(const FMaterialCachedExpressionData& OldData, const FMaterialCachedExpressionData& NewData, FMaterialLayoutChangeInfo& ChangeInfo) {
+#if ENGINE_MINOR_VERSION >= 26
 	DetectMaterialParameterChanges(OldData.Parameters, NewData.Parameters, ChangeInfo);
-
+#endif
 	for (UObject* Element : NewData.ReferencedTextures) {
 		UTexture* Texture = Cast<UTexture>(Element);
 		if (Texture && !OldData.ReferencedTextures.Contains(Texture)) {
@@ -815,11 +821,13 @@ bool UMaterialGenerator::IsMaterialQualityNodeUsed(const FMaterialCachedExpressi
 	return false;
 }
 
+#if ENGINE_MINOR_VERSION >= 26
 void UMaterialGenerator::DetectMaterialParameterChanges(const FMaterialCachedParameters& OldParams, const FMaterialCachedParameters& NewParams, FMaterialLayoutChangeInfo& ChangeInfo) {
 	TSet<FName> AllParameterNames;
 	TMap<FName, FIndexedParameterInfo> OldParameters;
 	TMap<FName, FIndexedParameterInfo> NewParameters;
-
+	
+	
 	const FMaterialCachedParameterEntry* OldEntryArray = OldParams.RuntimeEntries;
 	const FMaterialCachedParameterEntry* NewEntryArray = NewParams.RuntimeEntries;
 	
@@ -868,6 +876,8 @@ void UMaterialGenerator::DetectMaterialParameterChanges(const FMaterialCachedPar
 		}
 	}
 }
+
+#endif
 
 void UMaterialGenerator::AddNewParameterInfo(const FMaterialCachedParameters& Params, int32 Index, EMaterialParameterType Type, const FMaterialParameterInfo& ParameterInfo, FMaterialLayoutChangeInfo& ChangeInfo) {
 	if (Type == EMaterialParameterType::Scalar) {

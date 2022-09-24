@@ -3,7 +3,11 @@
 #include "Toolkit/ObjectHierarchySerializer.h"
 
 void USimpleAssetGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(
+#if ENGINE_MINOR_VERSION < 26
+	nullptr, 
+#endif
+*GetPackageName().ToString());
 	UClass* AssetClass = GetAssetObjectClass();
 	UObject* NewAssetObject = NewObject<UObject>(NewPackage, AssetClass, GetAssetName(), RF_Public | RF_Standalone);
 	SetPackageAndAsset(NewPackage, NewAssetObject);

@@ -309,3 +309,5 @@ FReply SAssetGeneratorWidget::OnBrowseOutputPathPressed() {
 	}
 	return FReply::Handled();
 }
+
+#undef LOCTEXT_NAMESPACE

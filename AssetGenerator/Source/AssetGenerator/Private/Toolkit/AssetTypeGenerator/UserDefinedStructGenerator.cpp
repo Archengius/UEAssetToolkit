@@ -7,7 +7,11 @@
 #include "UserDefinedStructure/UserDefinedStructEditorData.h"
 
 void UUserDefinedStructGenerator::CreateAssetPackage() {
-	UPackage* NewPackage = CreatePackage(*GetPackageName().ToString());
+	UPackage* NewPackage = CreatePackage(
+#if ENGINE_MINOR_VERSION < 26
+	nullptr, 
+#endif
+*GetPackageName().ToString());
 
 	UUserDefinedStruct* NewStruct = NewObject<UUserDefinedStruct>(NewPackage, GetAssetName(), RF_Public | RF_Standalone);
 	check(NewStruct);
@@ -102,8 +106,13 @@ bool UUserDefinedStructGenerator::IsStructUpToDate(UUserDefinedStruct* Struct) c
 void UUserDefinedStructGenerator::FinalizeAssetCDO() {
 	UUserDefinedStruct* Struct = GetAsset<UUserDefinedStruct>();
 
-	//Struct should be up to date at this point
-	check(Struct->Status == EUserDefinedStructureStatus::UDSS_UpToDate);
+	//Struct should be up to date at this point (but when generating from BP, it usually isn't)
+	if (!Struct->Status == EUserDefinedStructureStatus::UDSS_UpToDate) {
+		UE_LOG(LogAssetGenerator, Error, TEXT("Struct %s not up to date!"),
+				*Struct->GetPathName());
+		return;
+	}
+	//check(Struct->Status == EUserDefinedStructureStatus::UDSS_UpToDate);
 	
 	const TSharedPtr<FJsonObject> DefaultInstance = GetAssetData()->GetObjectField(TEXT("StructDefaultInstance"));
 

@@ -2,8 +2,9 @@
 A set of 2 plugins, one for generating asset dumps from the game and second for making assets from them in editor
 
 ## Creating Asset Dumps
-For dumping assets from the game, install AssetDumper plugin in the Shipping game and type 'OpenAssetDumper' in console. 
+For dumping assets from the game, install AssetDumper plugin in the Shipping game and type 'dumper.OpenAssetDumper' in console. 
 Tweak settings and asset whitelist as needed, then use Dump button to generate a list of dumped asset files and source art.
+Please note that the following files are known to crash the AssetDumper. Everything in the 'Game\WwiseAudio' folder, and the file located at 'Game/Geometry/Meshes/1M_Cube_Chamfer'
 
 ## Importing Assets from Dumps into Editor
 To import assets into the editor, navigate to Window -> Developer Tools -> Asset Generator.

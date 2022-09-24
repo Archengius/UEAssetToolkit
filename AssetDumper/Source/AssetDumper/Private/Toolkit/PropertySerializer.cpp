@@ -216,6 +216,12 @@ void UPropertySerializer::DeserializePropertyValueInner(FProperty* Property, con
 			Interface->SetInterface(InterfacePtr);
 		}
 
+	} else if (Property->IsA<FSoftObjectProperty>()) {
+		//For soft object reference, path is enough too for deserialization.
+		const FString PathString = JsonValue->AsString();
+		FSoftObjectPtr* ObjectPtr = static_cast<FSoftObjectPtr*>(Value);
+		*ObjectPtr = FSoftObjectPath(PathString);
+
 	} else if (const FObjectPropertyBase* ObjectProperty = CastField<const FObjectPropertyBase>(Property)) {
 		//Need to serialize full UObject for object property
 		UObject* Object = ObjectHierarchySerializer ? ObjectHierarchySerializer->DeserializeObject((int32) JsonValue->AsNumber()) : NULL;
@@ -224,12 +230,6 @@ void UPropertySerializer::DeserializePropertyValueInner(FProperty* Property, con
 	} else if (const FStructProperty* StructProperty = CastField<const FStructProperty>(Property)) {
 		//To serialize struct, we need it's type and value pointer, because struct value doesn't contain type information
 		DeserializeStruct(StructProperty->Struct, JsonValue->AsObject().ToSharedRef(), Value);
-
-	} else if (Property->IsA<FSoftObjectProperty>()) {
-		//For soft object reference, path is enough too for deserialization.
-		const FString PathString = JsonValue->AsString();
-		FSoftObjectPtr* ObjectPtr = static_cast<FSoftObjectPtr*>(Value);
-		*ObjectPtr = FSoftObjectPath(PathString);
 
 	} else if (const FByteProperty* ByteProperty = CastField<const FByteProperty>(Property)) {
 		//If we have a string provided, make sure Enum is not null

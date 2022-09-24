@@ -267,3 +267,5 @@ FAssetDumpConsoleTextLayoutMarshaller::FAssetDumpConsoleTextLayoutMarshaller() {
 
 FAssetDumpConsoleTextLayoutMarshaller::~FAssetDumpConsoleTextLayoutMarshaller() {
 }
+
+#undef LOCTEXT_NAMESPACE

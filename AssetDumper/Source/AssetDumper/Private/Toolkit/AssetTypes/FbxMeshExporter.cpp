@@ -747,31 +747,31 @@ void FFbxMeshExporter::CreateBindPose(FbxNode* MeshRootNode) {
 }
 
 uint32 FSkinWeightDataVertexBuffer_GetBoneIndex(const FSkinWeightDataVertexBuffer& VertexBuffer, uint32 VertexWeightOffset, uint32 VertexInfluenceCount, uint32 InfluenceIndex) {	
-	if (InfluenceIndex < VertexInfluenceCount) {
-		const uint8* BoneData = VertexBuffer.GetData() + VertexWeightOffset;
-		if (VertexBuffer.Use16BitBoneIndex()) {
-			FBoneIndex16* BoneIndex16Ptr = (FBoneIndex16*)BoneData;
-			return BoneIndex16Ptr[InfluenceIndex];
-		}
-		return BoneData[InfluenceIndex];
-	}
+	//if (InfluenceIndex < VertexInfluenceCount) {
+	//	const uint8* BoneData = VertexBuffer.GetData() + VertexWeightOffset;
+	//	if (VertexBuffer.Use16BitBoneIndex()) {
+	//		FBoneIndex16* BoneIndex16Ptr = (FBoneIndex16*)BoneData;
+	//		return BoneIndex16Ptr[InfluenceIndex];
+	//	}
+	//	return BoneData[InfluenceIndex];
+	//}
 	return 0;
 }
 
 uint8 FSkinWeightDataVertexBuffer_GetBoneWeight(const FSkinWeightDataVertexBuffer& VertexBuffer, uint32 VertexWeightOffset, uint32 VertexInfluenceCount, uint32 InfluenceIndex) {
-	if (InfluenceIndex < VertexInfluenceCount){
-		const uint8* BoneData = VertexBuffer.GetData() + VertexWeightOffset;
-		uint32 BoneWeightOffset = VertexBuffer.GetBoneIndexByteSize() * VertexInfluenceCount;
-		return BoneData[BoneWeightOffset + InfluenceIndex];
-	}
+	//if (InfluenceIndex < VertexInfluenceCount){
+	//	const uint8* BoneData = VertexBuffer.GetData() + VertexWeightOffset;
+	//	uint32 BoneWeightOffset = VertexBuffer.GetBoneIndexByteSize() * VertexInfluenceCount;
+	//	return BoneData[BoneWeightOffset + InfluenceIndex];
+	//}
 	return 0;
 }
 
 void FSkinWeightLookupVertexBuffer_GetWeightOffsetAndInfluenceCount(const FSkinWeightLookupVertexBuffer& VertexBuffer, uint32 VertexIndex, uint32& OutWeightOffset, uint32& OutInfluenceCount) {
-	uint32 Offset = VertexIndex * 4;
-	uint32 DataUInt32 = *((const uint32*)(&VertexBuffer.GetData()[Offset]));
-	OutWeightOffset = DataUInt32 >> 8;
-	OutInfluenceCount = DataUInt32 & 0xff;
+	//uint32 Offset = VertexIndex * 4;
+	//uint32 DataUInt32 = *((const uint32*)(&VertexBuffer.GetData()[Offset]));
+	//OutWeightOffset = DataUInt32 >> 8;
+	//OutInfluenceCount = DataUInt32 & 0xff;
 }
 
 //Copied from FSkinWeightVertexBuffer methods because they are not exported by the engine

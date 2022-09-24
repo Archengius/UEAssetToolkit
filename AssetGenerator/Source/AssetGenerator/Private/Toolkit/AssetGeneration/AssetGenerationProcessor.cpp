@@ -1,6 +1,7 @@
 #include "Toolkit/AssetGeneration/AssetGenerationProcessor.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "UObject/UObjectBaseUtility.h"
 
 #define LOCTEXT_NAMESPACE "AssetGenerator"
 
@@ -312,11 +313,16 @@ void FAssetGenerationProcessor::TickAssetGeneration(int32& PackagesGeneratedThis
 void FAssetGenerationProcessor::OnAssetGenerationStarted() {
 	UE_LOG(LogAssetGenerator, Log, TEXT("Starting asset generator for generating %d assets..."), PackagesToGenerate.Num());
 	UE_LOG(LogAssetGenerator, Log, TEXT("To view advanced information about asset generation process in the log, set LogAssetGenerator verbosity to VeryVerbose/Verbose"));
-
+	
 	//Do not spawn notifications while we're running commandlet
-	if (!IsRunningCommandlet()) {
+	if (!IsRunningCommandlet())
+	{
 		FNotificationInfo NotificationInfo = FNotificationInfo(LOCTEXT("AssetGenerator_Startup", "Asset Generation Starting Up..."));
-		NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic([](){ FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("OutputLog"))); });
+#if ENGINE_MINOR_VERSION >= 26
+			NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic([](){ FGlobalTabmanager::Get()->TryInvokeTab(FName(TEXT("OutputLog"))); });
+#elif ENGINE_MINOR_VERSION < 26
+			NotificationInfo.Hyperlink = FSimpleDelegate::CreateStatic([](){ FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("OutputLog"))); });
+#endif
 		NotificationInfo.HyperlinkText = LOCTEXT("ShowMessageLogHyperlink", "Show Output Log");
 		NotificationInfo.bFireAndForget = false;
 		
@@ -482,3 +488,5 @@ bool FAssetGenerationProcessor::IsTickableWhenPaused() const {
 bool FAssetGenerationProcessor::IsTickableInEditor() const {
 	return true;
 }
+
+#undef LOCTEXT_NAMESPACE

@@ -224,3 +224,4 @@ FReply SAssetDumperWidget::OnAssetDumpButtonPressed() {
 	return FReply::Handled();
 }
 
+#undef LOCTEXT_NAMESPACE
